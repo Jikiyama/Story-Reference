@@ -1,0 +1,21 @@
+{
+  "A111": {
+    "author_id": 999,
+    "tweet_location": "Paris",
+    "created_at_date_local": "2023-11-20",
+    "spans": [
+      {
+        "span": "Les Mis flashback",
+        "actors": [
+          "Jean Valjean"
+        ],
+        "storyName": "Les Mis\u00e9rables",
+        "storyYear": "1800s",
+        "storyLocationLat": 48.8566,
+        "storyLocationLon": 2.3522,
+        "storyLocation": "Paris",
+        "ref_type": "reference"
+      }
+    ]
+  }
+}

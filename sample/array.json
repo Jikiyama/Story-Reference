@@ -1,0 +1,58 @@
+[
+  {
+    "tweet_id": "t1",
+    "author_id": "42",
+    "tweet_location": "NYC",
+    "created_at_date_local": "2024-05-01",
+    "spans": [
+      {
+        "span": "Mentions Odyssey in Athens",
+        "actors": [
+          "Odysseus"
+        ],
+        "storyName": "The Odyssey",
+        "storyYear": "c. 0027\u20130030 CE",
+        "storyYearStart": "0027",
+        "storyYearEnd": "0030",
+        "storyLocationLat": 37.9838,
+        "storyLocationLon": 23.7275,
+        "storyLocation": "Athens",
+        "ref_type": "allusion"
+      },
+      {
+        "span": "Modern retelling set in 2008\u20132016",
+        "actors": [
+          "Penelope",
+          "Odysseus"
+        ],
+        "storyName": "The Odyssey",
+        "storyYear": "2008\u20132016",
+        "storyLocationLat": 40.7128,
+        "storyLocationLon": -74.006,
+        "storyLocation": "New York",
+        "ref_type": "retelling"
+      }
+    ]
+  },
+  {
+    "tweet_id": "t2",
+    "author_id": "7",
+    "tweet_location": "London",
+    "created_at_date_local": "2025-02-14",
+    "spans": [
+      {
+        "span": "Sherlock in 2010s London",
+        "actors": [
+          "Holmes",
+          "Watson"
+        ],
+        "storyName": "Sherlock Holmes",
+        "storyYear": "2010-2019",
+        "storyLocationLat": 51.5072,
+        "storyLocationLon": -0.1276,
+        "storyLocation": "London",
+        "ref_type": "reference"
+      }
+    ]
+  }
+]

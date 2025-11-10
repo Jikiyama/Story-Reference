@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Story Reference Explorer</title>
+  <style>
+    :root {
+      --bg: #121417;
+      --panel: #1a1f24;
+      --muted: #8b97a3;
+      --text: #e6edf3;
+      --accent: #3aa675;
+      --danger: #e05353;
+      --border: #2a3138;
+      --focus: #7cc7ff;
+      --chip: #0e1114;
+    }
+    * { box-sizing: border-box; }
+    html, body, #app { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    a { color: #9bd8ff; }
+    .error-banner {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 10000;
+      background: var(--danger);
+      color: #0b0e11;
+      padding: 10px 16px;
+      font-weight: 600;
+    }
+    .error-banner.show { display: block; }
+    .error-banner button {
+      float: right;
+      background: transparent;
+      border: 0;
+      color: #0b0e11;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.3px;
+    }
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .pill {
+      background: var(--chip);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .input {
+      display: inline-flex;
+      align-items: center;
+      background: #0e1216;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      gap: 8px;
+    }
+    .input input[type="text"] {
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      outline: none;
+      min-width: 240px;
+    }
+    .btn {
+      background: var(--accent);
+      color: #07130d;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn.secondary {
+      background: #29323a;
+      color: var(--text);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    #layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "sidebar map"
+        "sidebar bottom";
+      height: calc(100% - 56px);
+    }
+    #sidebar {
+      grid-area: sidebar;
+      overflow: auto;
+      border-right: 1px solid var(--border);
+      background: #0f1216;
+    }
+    #map {
+      grid-area: map;
+      height: 60vh;
+      min-height: 360px;
+    }
+    #bottom {
+      grid-area: bottom;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      padding: 12px;
+      min-height: 320px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .panel h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .kv { font-size: 12px; color: var(--muted); }
+    .scroll {
+      max-height: 180px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      background: #0e1216;
+    }
+    .searchbox {
+      width: 100%;
+      margin-bottom: 6px;
+    }
+    .searchbox input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: 6px;
+    }
+    .list-item {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 2px 0;
+      font-size: 13px;
+    }
+    label.checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    input[type="checkbox"] { accent-color: var(--accent); }
+    .slider { margin: 8px 0 2px; }
+    .small { font-size: 12px; color: var(--muted); }
+    .chart-wrap { height: 260px; }
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      background: #0e1114;
+    }
+    .stat { font-size: 12px; color: var(--muted); }
+    .legend { font-size: 12px; color: var(--muted); }
+    /* noUiSlider dark tweaks */
+    .noUi-target {
+      background: #11161b;
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+    .noUi-connect { background: var(--accent); }
+    .noUi-handle {
+      background: #f2f6f9;
+      border: 1px solid #d5dde5;
+      box-shadow: none;
+      border-radius: 7px;
+      width: 14px;
+      height: 14px;
+      top: -4px;
+    }
+    .noUi-horizontal { height: 8px; }
+    .vis-note { font-size: 12px; color: var(--muted); }
+    .hidden { display: none !important; }
+    @media (max-width: 1100px) {
+      #layout { grid-template-columns: 1fr; grid-template-areas: "map" "sidebar" "bottom"; height: auto; }
+      #map { height: 45vh; }
+    }
+  </style>
+</head>
+<body>
+  <div id="err" class="error-banner" role="alert">
+    <span id="err-text">Error</span>
+    <button aria-label="Dismiss error" id="err-close" title="Dismiss">&times;</button>
+  </div>
+
+  <header>
+    <h1>Story Reference Explorer <span class="small" id="dataset-title"></span></h1>
+    <div class="controls-row" aria-label="File & URL loader">
+      <input id="file-input" type="file" accept=".json,application/json" aria-label="Choose JSON file" />
+      <div class="input" role="group" aria-label="URL fetch">
+        <input type="text" id="url-input" placeholder="https://.../data.json" aria-label="Data URL" />
+        <button id="btn-fetch" class="btn" aria-label="Fetch via URL">Fetch</button>
+      </div>
+    </div>
+    <div class="controls-row">
+      <span id="meta-pill" class="pill" aria-live="polite" title="filename · tweets · spans">No dataset loaded</span>
+    </div>
+  </header>
+
+  <div id="layout">
+    <aside id="sidebar">
+      <div class="panel" style="margin:12px;">
+        <h3>Map & Cluster</h3>
+        <div class="row">
+          <label for="clusterMiles" class="small">Cluster radius (miles)</label>
+          <input type="range" id="clusterMiles" min="10" max="500" value="100" step="10" aria-valuemin="10" aria-valuemax="500" aria-label="Cluster radius miles">
+          <span class="kv"><span id="clusterMilesVal">100</span> mi</span>
+        </div>
+        <div class="row small">
+          <span>Circle size scales to √count. Click to zoom; hover for details.</span>
+        </div>
+        <div class="row">
+          <button id="btn-export" class="btn secondary" aria-label="Export filtered events to CSV">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin:12px;">
+        <h3>Tweet date</h3>
+        <div id="tweet-slider" class="slider" aria-label="Tweet date range slider"></div>
+        <div class="row small">
+          <span id="tweet-range-label">N/A</span>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <label class="small" for="play-step">Step</label>
+          <select id="play-step" aria-label="Play step">
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+          </select>
+          <label class="small" for="win-days">Window size (days)</label>
+          <input id="win-days" type="number" value="14" min="1" step="1" aria-label="Window size in days" style="width:90px;"/>
+          <button id="btn-play" class="btn" aria-pressed="false" aria-label="Play sliding window">Play</button>
+        </div>
+        <div class="vis-note small" id="play-note"></div>
+      </div>
+
+      <div class="panel" style="margin:12px;">
+        <h3>Story year</h3>
+        <div id="story-slider" class="slider" aria-label="Story year filter"></div>
+        <div class="row small">
+          <span id="story-range-label">N/A</span>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <span class="small">Quick decades:</span>
+          <div class="row">
+            <button class="btn ghost small-btn" data-decade="1900">1900s</button>
+            <button class="btn ghost small-btn" data-decade="1950">1950s</button>
+            <button class="btn ghost small-btn" data-decade="2000">2000s</button>
+            <button class="btn ghost small-btn" data-decade="2010">2010s</button>
+            <button class="btn ghost small-btn" data-decade="2020">2020s</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin:12px;">
+        <h3>Stories</h3>
+        <div class="row" style="gap:6px;margin-bottom:6px;">
+          <button id="story-all" class="btn ghost">All</button>
+          <button id="story-none" class="btn ghost">None</button>
+        </div>
+        <div class="searchbox">
+          <input id="story-search" type="text" placeholder="Search stories..." aria-label="Search stories">
+        </div>
+        <div id="story-list" class="scroll" role="listbox" aria-label="Stories list"></div>
+      </div>
+
+      <div class="panel" style="margin:12px;">
+        <h3>Actors</h3>
+        <div class="row" style="gap:6px;margin-bottom:6px;">
+          <button id="actor-all" class="btn ghost">All</button>
+          <button id="actor-none" class="btn ghost">None</button>
+          <button id="actor-top25" class="btn ghost">Top 25</button>
+        </div>
+        <div class="searchbox">
+          <input id="actor-search" type="text" placeholder="Search actors..." aria-label="Search actors">
+        </div>
+        <div id="actor-list" class="scroll" role="listbox" aria-label="Actors list"></div>
+      </div>
+    </aside>
+
+    <section id="map" class="panel" aria-label="Map"></section>
+
+    <section id="bottom">
+      <div class="panel">
+        <h3>Top Stories</h3>
+        <div class="chart-wrap"><canvas id="chart-stories" aria-label="Top stories chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Top Actors</h3>
+        <div class="chart-wrap"><canvas id="chart-actors" aria-label="Top actors chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>References Over Time</h3>
+        <div class="chart-wrap"><canvas id="chart-time" aria-label="References over time chart"></canvas></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="footer-bar">
+    <div class="legend">
+      <span>Columns in CSV export: tweet_id, author_id, tweet_location, tweet_date, story, story_year_start, story_year_end, story_location, lat, lon, ref_type, actors</span>
+    </div>
+    <div class="stat">
+      <span id="stat-filtered">0 events</span>
+    </div>
+  </div>
+
+  <!-- Dynamic loader + full app in one module -->
+  <script type="module">
+    // ---------- Error banner ----------
+    const errEl = document.getElementById('err');
+    const errText = document.getElementById('err-text');
+    const errClose = document.getElementById('err-close');
+    errClose.addEventListener('click', () => errEl.classList.remove('show'));
+    function showError(msg) {
+      errText.textContent = msg;
+      errEl.classList.add('show');
+    }
+    function loadCSS(url) {
+      return new Promise((resolve, reject) => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = url;
+        link.onload = () => resolve();
+        link.onerror = () => reject(new Error('CSS failed: ' + url));
+        document.head.appendChild(link);
+      });
+    }
+    function loadScript(url) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Script failed: ' + url));
+        document.head.appendChild(s);
+      });
+    }
+    async function loadWithFallbacks(kind, urls, check) {
+      let lastErr = null;
+      for (const u of urls) {
+        try {
+          if (u.endsWith('.css')) {
+            await loadCSS(u);
+          } else {
+            await loadScript(u);
+          }
+          if (typeof check === 'function') await check();
+          return true;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      showError(`Failed to load ${kind}: ${lastErr?.message || 'unknown error'}`);
+      return false;
+    }
+    const urls = {
+      leaflet_css: [
+        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css',
+        'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'
+      ],
+      leaflet_js: [
+        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
+        'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'
+      ],
+      noui_css: [
+        'https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css',
+        'https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.css',
+        'https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css'
+      ],
+      noui_js: [
+        'https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js',
+        'https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.js',
+        'https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js'
+      ],
+      chart_js: [
+        'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+        'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.js',
+        'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
+      ]
+    };
+    const [leafletOK, leafletJSOK, nouiCSSOK, nouiJSOK, chartOK] = await Promise.all([
+      loadWithFallbacks('Leaflet CSS', urls.leaflet_css),
+      loadWithFallbacks('Leaflet', urls.leaflet_js, () => Promise.resolve(window.L)),
+      loadWithFallbacks('noUiSlider CSS', urls.noui_css),
+      loadWithFallbacks('noUiSlider', urls.noui_js, () => Promise.resolve(window.noUiSlider)),
+      loadWithFallbacks('Chart.js', urls.chart_js, () => Promise.resolve(window.Chart))
+    ]);
+
+    // ---------- App code ----------
+    const L_ok = typeof L !== 'undefined';
+    const Chart_ok = typeof Chart !== 'undefined';
+    const noUi_ok = typeof noUiSlider !== 'undefined';
+
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    const datasetTitleEl = $('#dataset-title');
+    const metaPillEl = $('#meta-pill');
+    const fileInput = $('#file-input');
+    const urlInput = $('#url-input');
+    const fetchBtn = $('#btn-fetch');
+    const exportBtn = $('#btn-export');
+
+    const clusterMilesInput = $('#clusterMiles');
+    const clusterMilesVal = $('#clusterMilesVal');
+    clusterMilesVal.textContent = clusterMilesInput.value;
+
+    const tweetSliderEl = $('#tweet-slider');
+    const storySliderEl = $('#story-slider');
+    const tweetRangeLabel = $('#tweet-range-label');
+    const storyRangeLabel = $('#story-range-label');
+    const playStepSel = $('#play-step');
+    const winDaysInput = $('#win-days');
+    const playBtn = $('#btn-play');
+    const playNote = $('#play-note');
+
+    const storyListEl = $('#story-list');
+    const storySearch = $('#story-search');
+    const storyAllBtn = $('#story-all');
+    const storyNoneBtn = $('#story-none');
+
+    const actorListEl = $('#actor-list');
+    const actorSearch = $('#actor-search');
+    const actorAllBtn = $('#actor-all');
+    const actorNoneBtn = $('#actor-none');
+    const actorTop25Btn = $('#actor-top25');
+
+    const statFilteredEl = $('#stat-filtered');
+    const decadeBtns = $$('.small-btn[data-decade]');
+
+    let map, markersLayer;
+    let chartStories, chartActors, chartTime;
+
+    // Data and state
+    let tweets = [];
+    let events = [];
+    let filenameLabel = '';
+    let storyYearMin = null, storyYearMax = null;
+    let tweetDateMin = null, tweetDateMax = null;
+    let storyCountsGlobal = new Map();
+    let actorCountsGlobal = new Map();
+
+    // Selection modes: 'all' | 'some' | 'none'
+    let storiesMode = 'all';
+    let actorsMode = 'all';
+    let selectedStories = new Set();
+    let selectedActors = new Set();
+    let haveTweetDates = false;
+
+    function fmt(n) { return n.toLocaleString(); }
+
+    function parseJSONMaybe(text) {
+      try { return JSON.parse(text); } catch (e) { return null; }
+    }
+    function toArrayInput(json) {
+      if (Array.isArray(json)) return json;
+      if (json && typeof json === 'object') {
+        return Object.entries(json).map(([k, v]) => ({ tweet_id: k, ...v }));
+      }
+      return [];
+    }
+    function toDateLocalYYYYMMDD(s) {
+      if (!s || typeof s !== 'string') return null;
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) {
+        const [_, y, mo, d] = m;
+        const dt = new Date(Number(y), Number(mo)-1, Number(d));
+        return isNaN(dt.getTime()) ? null : dt;
+      }
+      const dt = new Date(s);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+    const CURRENT_YEAR = new Date().getFullYear();
+    function parseYearNumber(val) {
+      if (val == null) return null;
+      if (typeof val === 'number') return val;
+      let s = String(val).trim().toLowerCase();
+      if (!s) return null;
+      if (s.includes('present') || s.includes('now')) return CURRENT_YEAR;
+      s = s.replace(/[cC]\.\s*/g, '');
+      s = s.replace(/\b(ce|ad)\b\.?/g, '');
+      s = s.replace(/[^0-9\-–—]/g, '');
+      const m = s.match(/^-?0*(\d{1,6})$/);
+      if (m) return Number(m[1]);
+      const n = parseInt(s, 10);
+      return isNaN(n) ? null : n;
+    }
+    function parseYearRangeFromLabel(label) {
+      if (!label || typeof label !== 'string') return [null, null];
+      let s = label.trim().replace(/[–—]/g, '-').replace(/[cC]\.\s*/g, '').replace(/\b(CE|AD)\b\.?/gi,'');
+      const lower = s.toLowerCase();
+      if (lower.includes('present') || lower.includes('now')) {
+        const m = s.match(/(\d{1,6})/);
+        const start = m ? parseInt(m[1],10) : CURRENT_YEAR;
+        return [start, CURRENT_YEAR];
+      }
+      const rm = s.match(/(\d{1,6})\s*-\s*(\d{1,6})/);
+      if (rm) return [parseInt(rm[1],10), parseInt(rm[2],10)];
+      const sm = s.match(/(\d{1,6})/);
+      if (sm) { const y = parseInt(sm[1],10); return [y,y]; }
+      return [null, null];
+    }
+    function normalizeTweets(raw) {
+      const arr = toArrayInput(raw);
+      const norm = [];
+      for (const t of arr) {
+        const tweetId = t.tweet_id != null ? String(t.tweet_id) : '';
+        const authorId = t.author_id != null ? String(t.author_id) : '';
+        const tweetLoc = t.tweet_location || '';
+        const tweetDate = toDateLocalYYYYMMDD(t.created_at_date_local);
+        const spans = Array.isArray(t.spans) ? t.spans : [];
+        norm.push({ tweetId, authorId, tweetLoc, tweetDate, spans });
+      }
+      return norm;
+    }
+    function normalizeEvents(tweets) {
+      const out = [];
+      storyCountsGlobal.clear();
+      actorCountsGlobal.clear();
+      let minYear = Infinity, maxYear = -Infinity;
+      let minDate = new Date(8640000000000000), maxDate = new Date(-8640000000000000);
+      let haveDates = false;
+      for (const t of tweets) {
+        if (t.tweetDate instanceof Date && !isNaN(t.tweetDate)) {
+          haveDates = true;
+          if (t.tweetDate < minDate) minDate = t.tweetDate;
+          if (t.tweetDate > maxDate) maxDate = t.tweetDate;
+        }
+        for (const s of t.spans) {
+          const storyName = (s.storyName || '').trim();
+          if (!storyName) continue;
+          const lat = typeof s.storyLocationLat === 'number' ? s.storyLocationLat : null;
+          const lon = typeof s.storyLocationLon === 'number' ? s.storyLocationLon : null;
+          if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) continue;
+
+          let yStart = parseYearNumber(s.storyYearStart);
+          let yEnd   = parseYearNumber(s.storyYearEnd);
+          if (yStart == null || yEnd == null) {
+            const [a,b] = parseYearRangeFromLabel(s.storyYear || '');
+            if (yStart == null) yStart = a;
+            if (yEnd == null) yEnd = b;
+          }
+          if (yStart != null && yEnd != null) {
+            if (yStart > yEnd) [yStart, yEnd] = [yEnd, yStart];
+            minYear = Math.min(minYear, yStart);
+            maxYear = Math.max(maxYear, yEnd);
+          }
+          const actors = Array.isArray(s.actors) ? s.actors.filter(Boolean).map(String) : [];
+          const spanText = s.span || '';
+          const storyLocation = s.storyLocation || '';
+          const refType = s.ref_type || '';
+          const abstract = s.abstract || '';
+          const storyYearLabel = s.storyYear || '';
+
+          storyCountsGlobal.set(storyName, (storyCountsGlobal.get(storyName)||0)+1);
+          for (const a of actors) actorCountsGlobal.set(a, (actorCountsGlobal.get(a)||0)+1);
+
+          out.push({
+            tweetId: t.tweetId,
+            authorId: t.authorId,
+            tweetLoc: t.tweetLoc,
+            tweetDate: t.tweetDate instanceof Date && !isNaN(t.tweetDate) ? t.tweetDate : null,
+            spanText,
+            storyName,
+            storyYearStart: yStart,
+            storyYearEnd: yEnd,
+            storyYearLabel,
+            lat, lon,
+            storyLocation,
+            refType,
+            abstract,
+            actors
+          });
+        }
+      }
+      storyYearMin = (minYear === Infinity) ? null : minYear;
+      storyYearMax = (maxYear === -Infinity) ? null : maxYear;
+      tweetDateMin = haveDates ? minDate : null;
+      tweetDateMax = haveDates ? maxDate : null;
+      haveTweetDates = haveDates;
+      return out;
+    }
+
+    function intervalsOverlap(a1,a2,b1,b2) {
+      if (a1 == null || a2 == null || b1 == null || b2 == null) return true;
+      return Math.max(a1,b1) <= Math.min(a2,b2);
+    }
+
+    function eventPassesFilters(ev, tf, yf) {
+      if (tf && ev.tweetDate) {
+        if (ev.tweetDate < tf.start || ev.tweetDate > tf.end) return false;
+      }
+      if (yf && (ev.storyYearStart != null && ev.storyYearEnd != null)) {
+        if (!intervalsOverlap(ev.storyYearStart, ev.storyYearEnd, yf.y1, yf.y2)) return false;
+      }
+      // Stories
+      if (storiesMode === 'none') return false;
+      if (storiesMode === 'some' && !selectedStories.has(ev.storyName)) return false;
+      // Actors
+      if (actorsMode === 'none') return false;
+      if (actorsMode === 'some') {
+        let hit = false;
+        for (const a of ev.actors) if (selectedActors.has(a)) { hit = true; break; }
+        if (!hit) return false;
+      }
+      return true;
+    }
+
+    function haversineMiles(lat1, lon1, lat2, lon2) {
+      const R = 3958.8;
+      const toRad = (d) => d * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function clusterEvents(evts, radiusMiles) {
+      if (!evts.length) return [];
+      const latStep = radiusMiles / 69;
+      const lonStep = radiusMiles / 69;
+      const grid = new Map();
+      function cellKey(lat, lon) {
+        const i = Math.floor(lat / latStep);
+        const j = Math.floor(lon / lonStep);
+        return i + ':' + j;
+      }
+      const clusters = [];
+      const cellToClusterIdx = new Map();
+      for (const ev of evts) {
+        const key = cellKey(ev.lat, ev.lon);
+        let candidateIdxs = [];
+        const [ci, cj] = key.split(':').map(Number);
+        for (let di=-1; di<=1; di++) for (let dj=-1; dj<=1; dj++) {
+          const k = (ci+di)+':' + (cj+dj);
+          const idx = cellToClusterIdx.get(k);
+          if (idx != null) candidateIdxs.push(idx);
+        }
+        let nearestIdx = -1;
+        let nearestDist = Infinity;
+        for (const ci2 of candidateIdxs) {
+          const c = clusters[ci2];
+          const d = haversineMiles(ev.lat, ev.lon, c.lat, c.lon);
+          if (d <= radiusMiles && d < nearestDist) { nearestDist = d; nearestIdx = ci2; }
+        }
+        if (nearestIdx >= 0) {
+          const c = clusters[nearestIdx];
+          const n1 = c.n;
+          c.lat = (c.lat*n1 + ev.lat) / (n1+1);
+          c.lon = (c.lon*n1 + ev.lon) / (n1+1);
+          c.n += 1;
+          c.items.push(ev);
+          c.storyCounts.set(ev.storyName, (c.storyCounts.get(ev.storyName)||0)+1);
+          for (const a of ev.actors) c.actorCounts.set(a, (c.actorCounts.get(a)||0)+1);
+        } else {
+          const idx = clusters.length;
+          const cl = { lat: ev.lat, lon: ev.lon, n: 1, items: [ev], storyCounts: new Map(), actorCounts: new Map() };
+          cl.storyCounts.set(ev.storyName, 1);
+          for (const a of ev.actors) cl.actorCounts.set(a, (cl.actorCounts.get(a)||0)+1);
+          clusters.push(cl);
+          cellToClusterIdx.set(key, idx);
+        }
+      }
+      return clusters;
+    }
+
+    function ensureMap() {
+      if (!L_ok) { showError('Leaflet failed to load; map features disabled.'); return; }
+      if (!map) {
+        map = L.map('map', { zoomControl: true }).setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        markersLayer = L.layerGroup().addTo(map);
+      }
+    }
+    function updateMap(filtered) {
+      if (!L_ok) return;
+      ensureMap();
+      markersLayer.clearLayers();
+      if (!filtered.length) return;
+      const radiusMiles = Number(clusterMilesInput.value);
+      const clusters = clusterEvents(filtered, radiusMiles);
+      const latlngs = clusters.map(c => [c.lat, c.lon]);
+      if (latlngs.length) {
+        try {
+          const b = L.latLngBounds(latlngs);
+          if (b.isValid()) map.fitBounds(b.pad(0.2), { animate: false });
+        } catch {}
+      }
+      const maxN = Math.max(...clusters.map(c => c.n));
+      const minR = 6, maxR = 36;
+      const k = maxN > 0 ? (maxR - minR) / (Math.sqrt(maxN) - 1 || 1) : 1;
+
+      clusters.forEach(c => {
+        const r = Math.round(minR + k * (Math.sqrt(c.n) - 1));
+        const circle = L.circleMarker([c.lat, c.lon], {
+          radius: r, color: '#6dd39e', weight: 1, fillColor: '#3aa675', fillOpacity: 0.4
+        });
+        const topStories = [...c.storyCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([s,n])=>`${s} (${n})`).join('<br>');
+        const topActors = [...c.actorCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([s,n])=>`${s} (${n})`).join('<br>');
+        circle.bindPopup(`
+          <div><strong>Cluster center</strong>: ${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}</div>
+          <div><strong>Total references</strong>: ${c.n}</div>
+          <div style="margin-top:6px;"><strong>Top stories</strong><br>${topStories || '—'}</div>
+          <div style="margin-top:6px;"><strong>Top actors</strong><br>${topActors || '—'}</div>
+        `);
+        circle.on('click', () => map.setView([c.lat, c.lon], Math.min(map.getZoom()+2, 12)));
+        circle.addTo(markersLayer);
+      });
+    }
+
+    function ensureCharts() {
+      if (!Chart_ok) { showError('Chart.js failed to load; charts disabled.'); return; }
+      const storiesCtx = document.getElementById('chart-stories');
+      const actorsCtx = document.getElementById('chart-actors');
+      const timeCtx = document.getElementById('chart-time');
+      chartStories = new Chart(storiesCtx, {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: 'References', data: [] }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#cfd7df' }}, y: { ticks: { color: '#cfd7df' }}}, plugins: { legend: { labels: { color: '#cfd7df' }}}}
+      });
+      chartActors = new Chart(actorsCtx, {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: 'References', data: [] }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#cfd7df' }}, y: { ticks: { color: '#cfd7df' }}}, plugins: { legend: { labels: { color: '#cfd7df' }}}}
+      });
+      chartTime = new Chart(timeCtx, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'Refs per day', data: [], fill: false, tension: 0.1 }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#cfd7df' }}, y: { ticks: { color: '#cfd7df' }}}, plugins: { legend: { labels: { color: '#cfd7df' }}}}
+      });
+    }
+
+    function updateCharts(filtered) {
+      if (!Chart_ok || !chartStories) return;
+      const sCount = new Map();
+      const aCount = new Map();
+      for (const ev of filtered) {
+        sCount.set(ev.storyName, (sCount.get(ev.storyName)||0)+1);
+        for (const a of ev.actors) aCount.set(a, (aCount.get(a)||0)+1);
+      }
+      const sTop = [...sCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,20);
+      const aTop = [...aCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,20);
+      chartStories.data.labels = sTop.map(x=>x[0]);
+      chartStories.data.datasets[0].data = sTop.map(x=>x[1]);
+      chartStories.update();
+      chartActors.data.labels = aTop.map(x=>x[0]);
+      chartActors.data.datasets[0].data = aTop.map(x=>x[1]);
+      chartActors.update();
+
+      const byDay = new Map();
+      for (const ev of filtered) {
+        if (!ev.tweetDate) continue;
+        const d = new Date(ev.tweetDate.getFullYear(), ev.tweetDate.getMonth(), ev.tweetDate.getDate());
+        const k = d.toISOString().slice(0,10);
+        byDay.set(k, (byDay.get(k)||0)+1);
+      }
+      const labels = [...byDay.keys()].sort();
+      chartTime.data.labels = labels;
+      chartTime.data.datasets[0].data = labels.map(k => byDay.get(k));
+      chartTime.update();
+    }
+
+    function initTweetSlider() {
+      if (!noUi_ok) { showError('noUiSlider failed to load; sliders disabled.'); return; }
+      tweetSliderEl.innerHTML = '';
+      if (!haveTweetDates || !tweetDateMin || !tweetDateMax) {
+        tweetSliderEl.classList.add('hidden');
+        tweetRangeLabel.textContent = 'No tweet dates in dataset';
+        playBtn.disabled = true;
+        playNote.textContent = 'Play disabled: dataset lacks valid tweet dates.';
+        return;
+      }
+      tweetSliderEl.classList.remove('hidden');
+      playBtn.disabled = false;
+      playNote.textContent = '';
+      const minTS = tweetDateMin.getTime();
+      const maxTS = tweetDateMax.getTime();
+      noUiSlider.create(tweetSliderEl, {
+        start: [minTS, maxTS],
+        connect: true,
+        range: { min: minTS, max: maxTS },
+        step: 24*3600*1000,
+        tooltips: [true, true],
+        format: { to: v => Math.round(v), from: v => Number(v) },
+        behaviour: 'drag'
+      });
+      tweetSliderEl.noUiSlider.on('update', () => {
+        const [a,b] = tweetSliderEl.noUiSlider.get().map(Number);
+        const d1 = new Date(a), d2 = new Date(b);
+        tweetRangeLabel.textContent = d1.toISOString().slice(0,10) + ' to ' + d2.toISOString().slice(0,10);
+      });
+      tweetSliderEl.noUiSlider.on('change', triggerUpdate);
+    }
+
+    function initStorySlider() {
+      if (!noUi_ok) return;
+      storySliderEl.innerHTML = '';
+      const y1 = storyYearMin ?? 0;
+      const y2 = storyYearMax ?? CURRENT_YEAR;
+      noUiSlider.create(storySliderEl, {
+        start: [y1, y2],
+        connect: true,
+        range: { min: y1, max: y2 },
+        step: 1,
+        tooltips: [true, true],
+        format: { to: v => Math.round(v), from: v => Number(v) },
+        behaviour: 'drag'
+      });
+      const setLabel = () => {
+        const [a,b] = storySliderEl.noUiSlider.get().map(v=>Math.round(Number(v)));
+        storyRangeLabel.textContent = `${a} to ${b}`;
+      };
+      storySliderEl.noUiSlider.on('update', setLabel);
+      storySliderEl.noUiSlider.on('change', triggerUpdate);
+      setLabel();
+    }
+
+    function applyDecade(decStart) {
+      if (!noUi_ok || !storySliderEl.noUiSlider) return;
+      const a = Number(decStart), b = a + 9;
+      storySliderEl.noUiSlider.set([a, b]);
+      triggerUpdate();
+    }
+
+    function makeCheckboxList(container, items, mode, selectedSet) {
+      container.innerHTML = '';
+      for (const name of items) {
+        const id = container.id + '_' + name.replace(/\W+/g,'_');
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        const checked = mode === 'all' ? 'checked' : (mode === 'some' && selectedSet.has(name) ? 'checked' : '');
+        div.innerHTML = `
+          <label class="checkbox" for="${id}">
+            <input id="${id}" type="checkbox" ${checked} data-name="${name}" />
+            <span>${name}</span>
+          </label>`;
+        container.appendChild(div);
+      }
+    }
+    function getAllItemNames(container) {
+      return Array.from(container.querySelectorAll('input[type="checkbox"]')).map(cb => cb.dataset.name);
+    }
+    function filterList(container, query) {
+      const q = (query||'').trim().toLowerCase();
+      for (const div of container.children) {
+        const name = div.querySelector('input').dataset.name.toLowerCase();
+        div.style.display = !q || name.includes(q) ? '' : 'none';
+      }
+    }
+    function collectSelected(container) {
+      const cbs = container.querySelectorAll('input[type="checkbox"]');
+      const sel = new Set();
+      for (const cb of cbs) if (cb.checked) sel.add(cb.dataset.name);
+      return sel;
+    }
+
+    function initLists() {
+      const stories = [...storyCountsGlobal.keys()].sort((a,b)=>a.localeCompare(b));
+      makeCheckboxList(storyListEl, stories, storiesMode, selectedStories);
+      storyListEl.onchange = () => {
+        selectedStories = collectSelected(storyListEl);
+        const allNames = getAllItemNames(storyListEl);
+        if (selectedStories.size === 0) storiesMode = 'none';
+        else if (selectedStories.size === allNames.length) storiesMode = 'all';
+        else storiesMode = 'some';
+        triggerUpdate();
+      };
+      storyAllBtn.onclick = () => {
+        storiesMode = 'all'; selectedStories.clear();
+        for (const cb of storyListEl.querySelectorAll('input')) cb.checked = true;
+        triggerUpdate();
+      };
+      storyNoneBtn.onclick = () => {
+        storiesMode = 'none'; selectedStories.clear();
+        for (const cb of storyListEl.querySelectorAll('input')) cb.checked = false;
+        triggerUpdate();
+      };
+      storySearch.oninput = () => filterList(storyListEl, storySearch.value);
+
+      const actors = [...actorCountsGlobal.keys()].sort((a,b)=>a.localeCompare(b));
+      makeCheckboxList(actorListEl, actors, actorsMode, selectedActors);
+      actorListEl.onchange = () => {
+        selectedActors = collectSelected(actorListEl);
+        const allNames = getAllItemNames(actorListEl);
+        if (selectedActors.size === 0) actorsMode = 'none';
+        else if (selectedActors.size === allNames.length) actorsMode = 'all';
+        else actorsMode = 'some';
+        triggerUpdate();
+      };
+      actorAllBtn.onclick = () => {
+        actorsMode = 'all'; selectedActors.clear();
+        for (const cb of actorListEl.querySelectorAll('input')) cb.checked = true;
+        triggerUpdate();
+      };
+      actorNoneBtn.onclick = () => {
+        actorsMode = 'none'; selectedActors.clear();
+        for (const cb of actorListEl.querySelectorAll('input')) cb.checked = false;
+        triggerUpdate();
+      };
+      actorTop25Btn.onclick = () => {
+        const top25 = [...actorCountsGlobal.entries()].sort((a,b)=>b[1]-a[1]).slice(0,25).map(x=>x[0]);
+        actorsMode = 'some'; selectedActors = new Set(top25);
+        for (const cb of actorListEl.querySelectorAll('input')) cb.checked = top25.includes(cb.dataset.name);
+        triggerUpdate();
+      };
+      actorSearch.oninput = () => filterList(actorListEl, actorSearch.value);
+    }
+
+    function exportCSV(filtered) {
+      const rows = [['tweet_id','author_id','tweet_location','tweet_date','story','story_year_start','story_year_end','story_location','lat','lon','ref_type','actors']];
+      for (const ev of filtered) {
+        const td = ev.tweetDate ? ev.tweetDate.toISOString().slice(0,10) : '';
+        rows.push([ev.tweetId, ev.authorId, ev.tweetLoc, td, ev.storyName, ev.storyYearStart ?? '', ev.storyYearEnd ?? '', ev.storyLocation, ev.lat, ev.lon, ev.refType, ev.actors.join('|')]);
+      }
+      const csv = rows.map(r => r.map(x => {
+        const s = (x==null ? '' : String(x));
+        return s.includes(',') || s.includes('"') ? '"' + s.replace(/"/g,'""') + '"' : s;
+      }).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'story-reference-explorer.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    let updatePending = false;
+    function triggerUpdate() {
+      if (updatePending) return;
+      updatePending = true;
+      requestAnimationFrame(() => {
+        updatePending = false;
+        const tf = buildTweetDateFilter();
+        const yf = buildStoryYearFilter();
+        const filtered = events.filter(ev => eventPassesFilters(ev, tf, yf));
+        statFilteredEl.textContent = fmt(filtered.length) + ' events';
+        updateMap(filtered);
+        updateCharts(filtered);
+      });
+    }
+    let playTimer = null;
+    function stepMillis(kind) {
+      if (kind === 'week') return 7*24*3600*1000;
+      if (kind === 'month') return 30*24*3600*1000;
+      return 24*3600*1000;
+    }
+    function buildTweetDateFilter() {
+      if (!haveTweetDates || !noUi_ok || !tweetSliderEl.noUiSlider) return null;
+      const [minTS, maxTS] = tweetSliderEl.noUiSlider.get().map(v => Number(v));
+      return { start: new Date(minTS), end: new Date(maxTS) };
+    }
+    function buildStoryYearFilter() {
+      if (!noUi_ok || !storySliderEl.noUiSlider) return null;
+      const [y1, y2] = storySliderEl.noUiSlider.get().map(v => Math.round(Number(v)));
+      return { y1, y2 };
+    }
+    function startPlay() {
+      if (!haveTweetDates || !noUi_ok || !tweetSliderEl.noUiSlider) return;
+      const winDays = Math.max(1, Number(winDaysInput.value)||1);
+      const step = stepMillis(playStepSel.value);
+      const minTS = tweetDateMin.getTime();
+      const maxTS = tweetDateMax.getTime();
+      let curStart = minTS;
+      const winMS = winDays * 24*3600*1000;
+      playBtn.textContent = 'Pause';
+      playBtn.setAttribute('aria-pressed','true');
+      playTimer = setInterval(() => {
+        const a = curStart;
+        const b = Math.min(a + winMS, maxTS);
+        tweetSliderEl.noUiSlider.set([a, b]);
+        triggerUpdate();
+        if (b >= maxTS) stopPlay();
+        curStart = Math.min(curStart + step, maxTS - winMS);
+      }, 400);
+    }
+    function stopPlay() {
+      if (playTimer) clearInterval(playTimer);
+      playTimer = null;
+      playBtn.textContent = 'Play';
+      playBtn.setAttribute('aria-pressed','false');
+    }
+
+    async function loadFromFile(file) {
+      const text = await file.text();
+      const json = parseJSONMaybe(text);
+      if (!json) { showError('Invalid JSON file.'); return; }
+      applyData(json, file.name);
+    }
+    async function loadFromURL(url) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
+        const json = await resp.json();
+        applyData(json, url.split('/').pop() || 'remote.json');
+      } catch (e) {
+        showError('Failed to fetch ?data URL. CORS or network blocked. Keep the uploader as fallback.');
+      }
+    }
+    function applyData(json, name='dataset.json') {
+      tweets = normalizeTweets(json);
+      events = normalizeEvents(tweets);
+      filenameLabel = name || 'dataset.json';
+      const spanCount = events.length;
+      const tweetCount = tweets.length;
+      metaPillEl.textContent = `${filenameLabel} · tweets ${fmt(tweetCount)} · spans ${fmt(spanCount)}`;
+      datasetTitleEl.textContent = '';
+      initTweetSlider();
+      initStorySlider();
+      ensureMap();
+      if (!chartStories) ensureCharts();
+      initLists();
+      triggerUpdate();
+    }
+
+    clusterMilesInput.addEventListener('input', () => { clusterMilesVal.textContent = clusterMilesInput.value; });
+    clusterMilesInput.addEventListener('change', triggerUpdate);
+    exportBtn.addEventListener('click', () => {
+      const tf = buildTweetDateFilter();
+      const yf = buildStoryYearFilter();
+      const filtered = events.filter(ev => eventPassesFilters(ev, tf, yf));
+      exportCSV(filtered);
+    });
+    playBtn.addEventListener('click', () => { if (playTimer) stopPlay(); else startPlay(); });
+    decadeBtns.forEach(btn => btn.addEventListener('click', () => applyDecade(btn.dataset.decade)));
+    fileInput.addEventListener('change', () => { const f = fileInput.files && fileInput.files[0]; if (f) loadFromFile(f); });
+    fetchBtn.addEventListener('click', () => { const url = urlInput.value.trim(); if (url) loadFromURL(url); });
+
+    (function handleURLParams() {
+      const u = new URL(window.location.href);
+      const data = u.searchParams.get('data');
+      const title = u.searchParams.get('title');
+      if (title) datasetTitleEl.textContent = `· ${decodeURIComponent(title)}`;
+      if (data) loadFromURL(data);
+    })();
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') stopPlay(); });
+
+    // Initial map/charts placeholders
+    ensureMap();
+    if (!chartStories) ensureCharts();
+  </script>
+</body>
+</html>
