@@ -343,7 +343,7 @@
 
   <div class="footer-bar">
     <div class="legend">
-      <span>Columns in CSV export: tweet_id, author_id, tweet_location, tweet_date, story, story_year_start, story_year_end, story_location, lat, lon, ref_type, actors</span>
+      <span>Columns in CSV export: tweet_id, author_id, tweet_location, tweet_date, story, story_year_start, story_year_end, story_location, lat, lon, ref_type, actors (normalized)</span>
     </div>
     <div class="stat">
       <span id="stat-filtered">0 events</span>
@@ -593,7 +593,10 @@
             minYear = Math.min(minYear, yStart);
             maxYear = Math.max(maxYear, yEnd);
           }
-          const actors = Array.isArray(s.actors) ? s.actors.filter(Boolean).map(String) : [];
+          // Use normalized actors if available; skip non-normalized actors for better clustering
+          const actors = Array.isArray(s.actors_normalized) && s.actors_normalized.length > 0
+            ? s.actors_normalized.filter(Boolean).map(String)
+            : [];
           const spanText = s.span || '';
           const storyLocation = s.storyLocation || '';
           const refType = s.ref_type || '';
@@ -958,7 +961,7 @@
     }
 
     function exportCSV(filtered) {
-      const rows = [['tweet_id','author_id','tweet_location','tweet_date','story','story_year_start','story_year_end','story_location','lat','lon','ref_type','actors']];
+      const rows = [['tweet_id','author_id','tweet_location','tweet_date','story','story_year_start','story_year_end','story_location','lat','lon','ref_type','actors_normalized']];
       for (const ev of filtered) {
         const td = ev.tweetDate ? ev.tweetDate.toISOString().slice(0,10) : '';
         rows.push([ev.tweetId, ev.authorId, ev.tweetLoc, td, ev.storyName, ev.storyYearStart ?? '', ev.storyYearEnd ?? '', ev.storyLocation, ev.lat, ev.lon, ev.refType, ev.actors.join('|')]);
