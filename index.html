@@ -216,6 +216,79 @@
     .noUi-horizontal { height: 8px; }
     .vis-note { font-size: 12px; color: var(--muted); }
     .hidden { display: none !important; }
+    /* Modal styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 700px;
+      max-height: 80vh;
+      overflow: auto;
+      padding: 20px;
+      position: relative;
+    }
+    .modal-close {
+      position: absolute;
+      top: 10px; right: 14px;
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-title { margin: 0 0 12px 0; font-size: 16px; }
+    .modal-section { margin-bottom: 12px; }
+    .modal-section-title { font-size: 12px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+    .modal-text { font-size: 14px; line-height: 1.5; }
+    .tweet-card {
+      background: #0e1216;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .tweet-card-header { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .tweet-card-user { font-weight: 600; color: var(--text); }
+    .tweet-card-handle { color: var(--muted); font-size: 12px; }
+    .tweet-card-date { color: var(--muted); font-size: 12px; margin-left: auto; }
+    .tweet-card-text { font-size: 14px; line-height: 1.5; }
+    .tweet-card-meta { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .clickable-story { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
+    .clickable-story:hover { color: var(--accent); }
+    .analogy-card {
+      background: #0e1216;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 6px;
+    }
+    .analogy-source { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .analogy-target { font-size: 13px; margin-bottom: 4px; }
+    .analogy-type { font-size: 11px; color: var(--accent); }
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 10px; }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .tab-btn.active { background: var(--accent); color: #07130d; border-color: var(--accent); }
+    .file-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .file-label { font-size: 11px; color: var(--muted); }
     @media (max-width: 1100px) {
       #layout { grid-template-columns: 1fr; grid-template-areas: "map" "sidebar" "bottom"; height: auto; }
       #map { height: 45vh; }
@@ -231,7 +304,18 @@
   <header>
     <h1>Story Reference Explorer <span class="small" id="dataset-title"></span></h1>
     <div class="controls-row" aria-label="File & URL loader">
-      <input id="file-input" type="file" accept=".json,application/json" aria-label="Choose JSON file" />
+      <div class="file-row">
+        <span class="file-label">Stories JSON:</span>
+        <input id="file-input" type="file" accept=".json,application/json" aria-label="Choose Stories JSON file" />
+      </div>
+      <div class="file-row">
+        <span class="file-label">Analogies JSON:</span>
+        <input id="analogy-file-input" type="file" accept=".json,application/json" aria-label="Choose Analogies JSON file" />
+      </div>
+      <div class="file-row">
+        <span class="file-label">Source Tweets CSV:</span>
+        <input id="csv-file-input" type="file" accept=".csv,text/csv" aria-label="Choose Source Tweets CSV file" />
+      </div>
       <div class="input" role="group" aria-label="URL fetch">
         <input type="text" id="url-input" placeholder="https://.../data.json" aria-label="Data URL" />
         <button id="btn-fetch" class="btn" aria-label="Fetch via URL">Fetch</button>
@@ -239,6 +323,8 @@
     </div>
     <div class="controls-row">
       <span id="meta-pill" class="pill" aria-live="polite" title="filename · tweets · spans">No dataset loaded</span>
+      <span id="csv-pill" class="pill" aria-live="polite">No CSV loaded</span>
+      <span id="analogy-pill" class="pill" aria-live="polite">No analogies loaded</span>
     </div>
   </header>
 
@@ -321,6 +407,21 @@
         </div>
         <div id="actor-list" class="scroll" role="listbox" aria-label="Actors list"></div>
       </div>
+
+      <div class="panel" style="margin:12px;" id="analogies-panel">
+        <h3>Analogies</h3>
+        <div class="row" style="gap:6px;margin-bottom:6px;">
+          <button id="analogy-all" class="btn ghost">All</button>
+          <button id="analogy-none" class="btn ghost">None</button>
+        </div>
+        <div class="searchbox">
+          <input id="analogy-search" type="text" placeholder="Search analogies..." aria-label="Search analogies">
+        </div>
+        <div id="analogy-list" class="scroll" role="listbox" aria-label="Analogies list" style="max-height:220px;"></div>
+        <div class="small" style="margin-top:6px;">
+          <span id="analogy-count">0 analogies</span>
+        </div>
+      </div>
     </aside>
 
     <section id="map" class="panel" aria-label="Map"></section>
@@ -347,6 +448,20 @@
     </div>
     <div class="stat">
       <span id="stat-filtered">0 events</span>
+    </div>
+  </div>
+
+  <!-- Modal for viewing source tweets -->
+  <div id="source-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
+      <h2 class="modal-title" id="modal-title">Source Tweets</h2>
+      <div class="tab-bar" id="modal-tabs">
+        <button class="tab-btn active" data-tab="tweets">Source Tweets</button>
+        <button class="tab-btn" data-tab="analogies">Analogies</button>
+      </div>
+      <div id="modal-tweets-content"></div>
+      <div id="modal-analogies-content" class="hidden"></div>
     </div>
   </div>
 
@@ -444,10 +559,29 @@
 
     const datasetTitleEl = $('#dataset-title');
     const metaPillEl = $('#meta-pill');
+    const csvPillEl = $('#csv-pill');
+    const analogyPillEl = $('#analogy-pill');
     const fileInput = $('#file-input');
+    const analogyFileInput = $('#analogy-file-input');
+    const csvFileInput = $('#csv-file-input');
     const urlInput = $('#url-input');
     const fetchBtn = $('#btn-fetch');
     const exportBtn = $('#btn-export');
+
+    // Analogy panel elements
+    const analogyListEl = $('#analogy-list');
+    const analogySearch = $('#analogy-search');
+    const analogyAllBtn = $('#analogy-all');
+    const analogyNoneBtn = $('#analogy-none');
+    const analogyCountEl = $('#analogy-count');
+
+    // Modal elements
+    const sourceModal = $('#source-modal');
+    const modalClose = $('#modal-close');
+    const modalTitle = $('#modal-title');
+    const modalTabs = $('#modal-tabs');
+    const modalTweetsContent = $('#modal-tweets-content');
+    const modalAnalogiesContent = $('#modal-analogies-content');
 
     const clusterMilesInput = $('#clusterMiles');
     const clusterMilesVal = $('#clusterMilesVal');
@@ -488,6 +622,18 @@
     let storyCountsGlobal = new Map();
     let actorCountsGlobal = new Map();
 
+    // CSV source tweets data (indexed by tweet_id)
+    let sourceTweetsMap = new Map();
+    let csvLoaded = false;
+
+    // Analogies data
+    let analogiesData = new Map(); // tweet_id -> { text_cleaned, analogies: [...] }
+    let analogyItems = []; // Flattened list of all analogies for display
+    let analogyCountsGlobal = new Map(); // source/target -> count
+    let selectedAnalogies = new Set();
+    let analogiesMode = 'all';
+    let analogiesLoaded = false;
+
     // Selection modes: 'all' | 'some' | 'none'
     let storiesMode = 'all';
     let actorsMode = 'all';
@@ -496,6 +642,16 @@
     let haveTweetDates = false;
 
     function fmt(n) { return n.toLocaleString(); }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
     function parseJSONMaybe(text) {
       try { return JSON.parse(text); } catch (e) { return null; }
@@ -548,6 +704,152 @@
       if (sm) { const y = parseInt(sm[1],10); return [y,y]; }
       return [null, null];
     }
+
+    // CSV parsing function
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/);
+      if (lines.length < 2) return [];
+      const headerLine = lines[0];
+      const headers = parseCSVLine(headerLine);
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const values = parseCSVLine(line);
+        const row = {};
+        for (let j = 0; j < headers.length; j++) {
+          row[headers[j]] = values[j] || '';
+        }
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    function parseCSVLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (inQuotes) {
+          if (c === '"') {
+            if (line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            current += c;
+          }
+        } else {
+          if (c === '"') {
+            inQuotes = true;
+          } else if (c === ',') {
+            result.push(current);
+            current = '';
+          } else {
+            current += c;
+          }
+        }
+      }
+      result.push(current);
+      return result;
+    }
+
+    // Load CSV data into sourceTweetsMap
+    function loadCSVData(rows) {
+      sourceTweetsMap.clear();
+      for (const row of rows) {
+        const tweetId = row.tweet_id;
+        if (!tweetId) continue;
+        sourceTweetsMap.set(String(tweetId), {
+          internal_id: row.internal_id || '',
+          author_id: row.author_id || '',
+          tweet_id: tweetId,
+          text_original: row.text_original || '',
+          text_cleaned: row.text_cleaned || '',
+          topic_label: row.Topic_label_merged || '',
+          language: row.language || '',
+          created_at_local: row.created_at_local || '',
+          created_at_date_local: row.created_at_date_local || '',
+          user_name: row.user_name || '',
+          screen_name: row.screen_name || '',
+          user_description: row.user_description || '',
+          tweet_location: row.tweet_location || ''
+        });
+      }
+      csvLoaded = true;
+      csvPillEl.textContent = `CSV: ${fmt(sourceTweetsMap.size)} tweets`;
+    }
+
+    // Load analogies data
+    function loadAnalogiesData(json) {
+      analogiesData.clear();
+      analogyItems = [];
+      analogyCountsGlobal.clear();
+
+      const entries = Array.isArray(json) ? json : Object.values(json);
+      for (const entry of entries) {
+        const tweetId = String(entry.tweet_id || '');
+        if (!tweetId) continue;
+        const textCleaned = entry.text_cleaned || '';
+        const analogies = Array.isArray(entry.analogies) ? entry.analogies : [];
+
+        analogiesData.set(tweetId, { text_cleaned: textCleaned, analogies });
+
+        // Create flattened analogy items for display
+        for (const analogy of analogies) {
+          const source = analogy.source || analogy.source_entity || '';
+          const target = analogy.target || analogy.target_entity || '';
+          const type = analogy.type || analogy.analogy_type || '';
+          const explanation = analogy.explanation || analogy.reasoning || '';
+
+          if (source || target) {
+            analogyItems.push({
+              tweetId,
+              textCleaned,
+              source,
+              target,
+              type,
+              explanation
+            });
+
+            // Count for filtering
+            const key = `${source} → ${target}`;
+            analogyCountsGlobal.set(key, (analogyCountsGlobal.get(key) || 0) + 1);
+          }
+        }
+      }
+
+      analogiesLoaded = true;
+      analogyPillEl.textContent = `Analogies: ${fmt(analogyItems.length)}`;
+      analogyCountEl.textContent = `${fmt(analogyItems.length)} analogies`;
+      initAnalogyList();
+    }
+
+    // Get source tweet by ID
+    function getSourceTweet(tweetId) {
+      return sourceTweetsMap.get(String(tweetId));
+    }
+
+    // Get analogies for a tweet ID
+    function getAnalogiesForTweet(tweetId) {
+      const data = analogiesData.get(String(tweetId));
+      return data ? data.analogies : [];
+    }
+
+    // Get all tweets that mention a story
+    function getTweetsForStory(storyName) {
+      const tweetIds = new Set();
+      for (const ev of events) {
+        if (ev.storyName === storyName) {
+          tweetIds.add(ev.tweetId);
+        }
+      }
+      return Array.from(tweetIds);
+    }
+
     function normalizeTweets(raw) {
       const arr = toArrayInput(raw);
       const norm = [];
@@ -876,19 +1178,39 @@
       triggerUpdate();
     }
 
-    function makeCheckboxList(container, items, mode, selectedSet) {
+    function makeCheckboxList(container, items, mode, selectedSet, isStoryList = false) {
       container.innerHTML = '';
       for (const name of items) {
         const id = container.id + '_' + name.replace(/\W+/g,'_');
         const div = document.createElement('div');
         div.className = 'list-item';
         const checked = mode === 'all' ? 'checked' : (mode === 'some' && selectedSet.has(name) ? 'checked' : '');
-        div.innerHTML = `
-          <label class="checkbox" for="${id}">
-            <input id="${id}" type="checkbox" ${checked} data-name="${name}" />
-            <span>${name}</span>
-          </label>`;
+        if (isStoryList) {
+          div.innerHTML = `
+            <label class="checkbox" for="${id}">
+              <input id="${id}" type="checkbox" ${checked} data-name="${name}" />
+              <span class="clickable-story" data-story="${escapeHtml(name)}">${name}</span>
+            </label>`;
+        } else {
+          div.innerHTML = `
+            <label class="checkbox" for="${id}">
+              <input id="${id}" type="checkbox" ${checked} data-name="${name}" />
+              <span>${name}</span>
+            </label>`;
+        }
         container.appendChild(div);
+      }
+
+      // Add click handler for story names
+      if (isStoryList) {
+        container.addEventListener('click', (e) => {
+          const storySpan = e.target.closest('.clickable-story');
+          if (storySpan) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleStoryClick(storySpan.dataset.story);
+          }
+        });
       }
     }
     function getAllItemNames(container) {
@@ -910,7 +1232,7 @@
 
     function initLists() {
       const stories = [...storyCountsGlobal.keys()].sort((a,b)=>a.localeCompare(b));
-      makeCheckboxList(storyListEl, stories, storiesMode, selectedStories);
+      makeCheckboxList(storyListEl, stories, storiesMode, selectedStories, true); // true = clickable stories
       storyListEl.onchange = () => {
         selectedStories = collectSelected(storyListEl);
         const allNames = getAllItemNames(storyListEl);
@@ -958,6 +1280,168 @@
         triggerUpdate();
       };
       actorSearch.oninput = () => filterList(actorListEl, actorSearch.value);
+    }
+
+    function initAnalogyList() {
+      if (!analogyItems.length) {
+        analogyListEl.innerHTML = '<div class="small">No analogies loaded</div>';
+        return;
+      }
+
+      // Get unique analogy keys for the checkbox list
+      const uniqueKeys = [...analogyCountsGlobal.keys()].sort((a, b) => a.localeCompare(b));
+      makeCheckboxList(analogyListEl, uniqueKeys, analogiesMode, selectedAnalogies);
+
+      analogyListEl.onchange = () => {
+        selectedAnalogies = collectSelected(analogyListEl);
+        const allNames = getAllItemNames(analogyListEl);
+        if (selectedAnalogies.size === 0) analogiesMode = 'none';
+        else if (selectedAnalogies.size === allNames.length) analogiesMode = 'all';
+        else analogiesMode = 'some';
+      };
+
+      analogyAllBtn.onclick = () => {
+        analogiesMode = 'all';
+        selectedAnalogies.clear();
+        for (const cb of analogyListEl.querySelectorAll('input')) cb.checked = true;
+      };
+
+      analogyNoneBtn.onclick = () => {
+        analogiesMode = 'none';
+        selectedAnalogies.clear();
+        for (const cb of analogyListEl.querySelectorAll('input')) cb.checked = false;
+      };
+
+      analogySearch.oninput = () => filterList(analogyListEl, analogySearch.value);
+    }
+
+    // Modal functions
+    function openModal(title, tweetIds) {
+      modalTitle.textContent = title;
+      renderModalTweets(tweetIds);
+      renderModalAnalogies(tweetIds);
+      sourceModal.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      sourceModal.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    function renderModalTweets(tweetIds) {
+      if (!tweetIds.length) {
+        modalTweetsContent.innerHTML = '<div class="small">No tweets found</div>';
+        return;
+      }
+
+      let html = '';
+      for (const tweetId of tweetIds) {
+        const tweet = getSourceTweet(tweetId);
+        if (tweet) {
+          html += `
+            <div class="tweet-card">
+              <div class="tweet-card-header">
+                <span class="tweet-card-user">${escapeHtml(tweet.user_name || 'Unknown')}</span>
+                <span class="tweet-card-handle">@${escapeHtml(tweet.screen_name || '')}</span>
+                <span class="tweet-card-date">${escapeHtml(tweet.created_at_date_local || '')}</span>
+              </div>
+              <div class="tweet-card-text">${escapeHtml(tweet.text_original || tweet.text_cleaned || '')}</div>
+              <div class="tweet-card-meta">
+                <span>Location: ${escapeHtml(tweet.tweet_location || 'N/A')}</span> |
+                <span>Topic: ${escapeHtml(tweet.topic_label || 'N/A')}</span> |
+                <span>ID: ${escapeHtml(tweet.tweet_id)}</span>
+              </div>
+            </div>
+          `;
+        } else {
+          // Tweet not in CSV, try analogies data, then fall back to events
+          const analogyData = analogiesData.get(String(tweetId));
+          const ev = events.find(e => e.tweetId === tweetId);
+          const textFromAnalogy = analogyData?.text_cleaned || '';
+          const textFromEvent = ev?.spanText || '';
+          const displayText = textFromAnalogy || textFromEvent || 'Source tweet text not available (CSV not loaded)';
+
+          html += `
+            <div class="tweet-card">
+              <div class="tweet-card-header">
+                <span class="tweet-card-user">Tweet ID: ${escapeHtml(tweetId)}</span>
+                <span class="tweet-card-date">${ev?.tweetDate ? ev.tweetDate.toISOString().slice(0, 10) : ''}</span>
+              </div>
+              <div class="tweet-card-text">${escapeHtml(displayText)}</div>
+              <div class="tweet-card-meta">
+                <span>Location: ${escapeHtml(ev?.tweetLoc || 'N/A')}</span>
+                ${textFromAnalogy ? ' | <span>Source: Analogies file</span>' : ''}
+              </div>
+            </div>
+          `;
+        }
+      }
+      modalTweetsContent.innerHTML = html || '<div class="small">No source tweets available</div>';
+    }
+
+    function renderModalAnalogies(tweetIds) {
+      let html = '';
+      let count = 0;
+
+      for (const tweetId of tweetIds) {
+        const data = analogiesData.get(String(tweetId));
+        if (data && data.analogies.length > 0) {
+          for (const analogy of data.analogies) {
+            const source = analogy.source || analogy.source_entity || '';
+            const target = analogy.target || analogy.target_entity || '';
+            const type = analogy.type || analogy.analogy_type || '';
+            const explanation = analogy.explanation || analogy.reasoning || '';
+
+            html += `
+              <div class="analogy-card">
+                <div class="analogy-source">Tweet: "${escapeHtml(data.text_cleaned.slice(0, 100))}${data.text_cleaned.length > 100 ? '...' : ''}"</div>
+                <div class="analogy-target"><strong>${escapeHtml(source)}</strong> → <strong>${escapeHtml(target)}</strong></div>
+                ${type ? `<div class="analogy-type">Type: ${escapeHtml(type)}</div>` : ''}
+                ${explanation ? `<div class="small" style="margin-top:4px;">${escapeHtml(explanation)}</div>` : ''}
+              </div>
+            `;
+            count++;
+          }
+        }
+      }
+
+      if (!count) {
+        modalAnalogiesContent.innerHTML = '<div class="small">No analogies found for these tweets</div>';
+      } else {
+        modalAnalogiesContent.innerHTML = `<div class="small" style="margin-bottom:8px;">${count} analogy/analogies found</div>` + html;
+      }
+    }
+
+    // Setup modal event listeners
+    function setupModalListeners() {
+      modalClose.onclick = closeModal;
+      sourceModal.onclick = (e) => {
+        if (e.target === sourceModal) closeModal();
+      };
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sourceModal.classList.contains('show')) {
+          closeModal();
+        }
+      });
+
+      // Tab switching
+      modalTabs.onclick = (e) => {
+        const btn = e.target.closest('.tab-btn');
+        if (!btn) return;
+        const tab = btn.dataset.tab;
+        for (const b of modalTabs.querySelectorAll('.tab-btn')) {
+          b.classList.toggle('active', b === btn);
+        }
+        modalTweetsContent.classList.toggle('hidden', tab !== 'tweets');
+        modalAnalogiesContent.classList.toggle('hidden', tab !== 'analogies');
+      };
+    }
+
+    // Handle story click to show source tweets
+    function handleStoryClick(storyName) {
+      const tweetIds = getTweetsForStory(storyName);
+      openModal(`Source Tweets: ${storyName}`, tweetIds);
     }
 
     function exportCSV(filtered) {
@@ -1082,11 +1566,82 @@
     fileInput.addEventListener('change', () => { const f = fileInput.files && fileInput.files[0]; if (f) loadFromFile(f); });
     fetchBtn.addEventListener('click', () => { const url = urlInput.value.trim(); if (url) loadFromURL(url); });
 
-    (function handleURLParams() {
+    // CSV file input listener
+    csvFileInput.addEventListener('change', async () => {
+      const f = csvFileInput.files && csvFileInput.files[0];
+      if (f) {
+        try {
+          const text = await f.text();
+          const rows = parseCSV(text);
+          loadCSVData(rows);
+        } catch (e) {
+          showError('Failed to parse CSV file: ' + e.message);
+        }
+      }
+    });
+
+    // Analogies file input listener
+    analogyFileInput.addEventListener('change', async () => {
+      const f = analogyFileInput.files && analogyFileInput.files[0];
+      if (f) {
+        try {
+          const text = await f.text();
+          const json = parseJSONMaybe(text);
+          if (!json) {
+            showError('Invalid JSON in analogies file');
+            return;
+          }
+          loadAnalogiesData(json);
+        } catch (e) {
+          showError('Failed to parse analogies file: ' + e.message);
+        }
+      }
+    });
+
+    // Setup modal listeners
+    setupModalListeners();
+
+    (async function handleURLParams() {
       const u = new URL(window.location.href);
       const data = u.searchParams.get('data');
       const title = u.searchParams.get('title');
+      const csvUrl = u.searchParams.get('csv');
+      const analogiesUrl = u.searchParams.get('analogies');
+
       if (title) datasetTitleEl.textContent = `· ${decodeURIComponent(title)}`;
+
+      // Load CSV from URL if provided
+      if (csvUrl) {
+        try {
+          const resp = await fetch(csvUrl);
+          if (resp.ok) {
+            const text = await resp.text();
+            const rows = parseCSV(text);
+            loadCSVData(rows);
+          } else {
+            showError('Failed to fetch CSV: ' + resp.status);
+          }
+        } catch (e) {
+          showError('Failed to fetch CSV. CORS or network blocked.');
+        }
+      }
+
+      // Load analogies from URL if provided
+      if (analogiesUrl) {
+        try {
+          const resp = await fetch(analogiesUrl);
+          if (resp.ok) {
+            const json = await resp.json();
+            loadAnalogiesData(json);
+          } else {
+            showError('Failed to fetch analogies: ' + resp.status);
+          }
+        } catch (e) {
+          showError('Failed to fetch analogies. CORS or network blocked.');
+        }
+      }
+
+      // Load main data
       if (data) loadFromURL(data);
     })();
 

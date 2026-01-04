@@ -3,7 +3,8 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(head:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(find:*)"
     ]
   }
 }
