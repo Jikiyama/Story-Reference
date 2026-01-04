@@ -1075,21 +1075,68 @@
       const storiesCtx = document.getElementById('chart-stories');
       const actorsCtx = document.getElementById('chart-actors');
       const timeCtx = document.getElementById('chart-time');
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { color: '#cfd7df' }},
+          y: { ticks: { color: '#cfd7df' }}
+        },
+        plugins: {
+          legend: { labels: { color: '#cfd7df' }}
+        },
+        onHover: (event, elements) => {
+          event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+        }
+      };
+
       chartStories = new Chart(storiesCtx, {
         type: 'bar',
-        data: { labels: [], datasets: [{ label: 'References', data: [] }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#cfd7df' }}, y: { ticks: { color: '#cfd7df' }}}, plugins: { legend: { labels: { color: '#cfd7df' }}}}
+        data: { labels: [], datasets: [{ label: 'References', data: [], backgroundColor: '#3aa675' }] },
+        options: {
+          ...chartOptions,
+          onClick: (event, elements) => {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const storyName = chartStories.data.labels[index];
+              if (storyName) handleStoryClick(storyName);
+            }
+          }
+        }
       });
+
       chartActors = new Chart(actorsCtx, {
         type: 'bar',
-        data: { labels: [], datasets: [{ label: 'References', data: [] }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#cfd7df' }}, y: { ticks: { color: '#cfd7df' }}}, plugins: { legend: { labels: { color: '#cfd7df' }}}}
+        data: { labels: [], datasets: [{ label: 'References', data: [], backgroundColor: '#7cc7ff' }] },
+        options: {
+          ...chartOptions,
+          onClick: (event, elements) => {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const actorName = chartActors.data.labels[index];
+              if (actorName) handleActorClick(actorName);
+            }
+          }
+        }
       });
+
       chartTime = new Chart(timeCtx, {
         type: 'line',
-        data: { labels: [], datasets: [{ label: 'Refs per day', data: [], fill: false, tension: 0.1 }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#cfd7df' }}, y: { ticks: { color: '#cfd7df' }}}, plugins: { legend: { labels: { color: '#cfd7df' }}}}
+        data: { labels: [], datasets: [{ label: 'Refs per day', data: [], fill: false, tension: 0.1, borderColor: '#9bd8ff' }] },
+        options: chartOptions
       });
+    }
+
+    // Handle actor click to show source tweets
+    function handleActorClick(actorName) {
+      const tweetIds = new Set();
+      for (const ev of events) {
+        if (ev.actors.includes(actorName)) {
+          tweetIds.add(ev.tweetId);
+        }
+      }
+      openModal(`Source Tweets: ${actorName}`, Array.from(tweetIds));
     }
 
     function updateCharts(filtered) {
@@ -1184,24 +1231,40 @@
       triggerUpdate();
     }
 
-    function makeCheckboxList(container, items, mode, selectedSet, isStoryList = false) {
+    function makeCheckboxList(container, items, mode, selectedSet, isStoryList = false, isActorList = false) {
       container.innerHTML = '';
       for (const name of items) {
         const id = container.id + '_' + name.replace(/\W+/g,'_');
         const div = document.createElement('div');
         div.className = 'list-item';
         const checked = mode === 'all' ? 'checked' : (mode === 'some' && selectedSet.has(name) ? 'checked' : '');
+
+        // Get count for display
+        let count = 0;
+        if (isStoryList) {
+          count = storyCountsGlobal.get(name) || 0;
+        } else if (isActorList) {
+          count = actorCountsGlobal.get(name) || 0;
+        }
+        const countDisplay = count > 0 ? ` <span class="small">(${count})</span>` : '';
+
         if (isStoryList) {
           div.innerHTML = `
             <label class="checkbox" for="${id}">
               <input id="${id}" type="checkbox" ${checked} data-name="${name}" />
-              <span class="clickable-story" data-story="${escapeHtml(name)}">${name}</span>
+              <span class="clickable-story" data-story="${escapeHtml(name)}">${escapeHtml(name)}${countDisplay}</span>
+            </label>`;
+        } else if (isActorList) {
+          div.innerHTML = `
+            <label class="checkbox" for="${id}">
+              <input id="${id}" type="checkbox" ${checked} data-name="${name}" />
+              <span class="clickable-story" data-actor="${escapeHtml(name)}">${escapeHtml(name)}${countDisplay}</span>
             </label>`;
         } else {
           div.innerHTML = `
             <label class="checkbox" for="${id}">
               <input id="${id}" type="checkbox" ${checked} data-name="${name}" />
-              <span>${name}</span>
+              <span>${escapeHtml(name)}</span>
             </label>`;
         }
         container.appendChild(div);
@@ -1211,10 +1274,22 @@
       if (isStoryList) {
         container.addEventListener('click', (e) => {
           const storySpan = e.target.closest('.clickable-story');
-          if (storySpan) {
+          if (storySpan && storySpan.dataset.story) {
             e.preventDefault();
             e.stopPropagation();
             handleStoryClick(storySpan.dataset.story);
+          }
+        });
+      }
+
+      // Add click handler for actor names
+      if (isActorList) {
+        container.addEventListener('click', (e) => {
+          const actorSpan = e.target.closest('.clickable-story');
+          if (actorSpan && actorSpan.dataset.actor) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleActorClick(actorSpan.dataset.actor);
           }
         });
       }
@@ -1237,7 +1312,10 @@
     }
 
     function initLists() {
-      const stories = [...storyCountsGlobal.keys()].sort((a,b)=>a.localeCompare(b));
+      // Sort stories by reference count (descending), then alphabetically
+      const stories = [...storyCountsGlobal.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([name]) => name);
       makeCheckboxList(storyListEl, stories, storiesMode, selectedStories, true); // true = clickable stories
       storyListEl.onchange = () => {
         selectedStories = collectSelected(storyListEl);
@@ -1259,8 +1337,11 @@
       };
       storySearch.oninput = () => filterList(storyListEl, storySearch.value);
 
-      const actors = [...actorCountsGlobal.keys()].sort((a,b)=>a.localeCompare(b));
-      makeCheckboxList(actorListEl, actors, actorsMode, selectedActors);
+      // Sort actors by reference count (descending), then alphabetically
+      const actors = [...actorCountsGlobal.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([name]) => name);
+      makeCheckboxList(actorListEl, actors, actorsMode, selectedActors, false, true); // isActorList = true
       actorListEl.onchange = () => {
         selectedActors = collectSelected(actorListEl);
         const allNames = getAllItemNames(actorListEl);
