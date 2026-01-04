@@ -409,10 +409,9 @@
       </div>
 
       <div class="panel" style="margin:12px;" id="analogies-panel">
-        <h3>Analogies</h3>
+        <h3>Analogies (Historical Comparisons)</h3>
         <div class="row" style="gap:6px;margin-bottom:6px;">
-          <button id="analogy-all" class="btn ghost">All</button>
-          <button id="analogy-none" class="btn ghost">None</button>
+          <button id="analogy-all" class="btn ghost">View All</button>
         </div>
         <div class="searchbox">
           <input id="analogy-search" type="text" placeholder="Search analogies..." aria-label="Search analogies">
@@ -572,7 +571,6 @@
     const analogyListEl = $('#analogy-list');
     const analogySearch = $('#analogy-search');
     const analogyAllBtn = $('#analogy-all');
-    const analogyNoneBtn = $('#analogy-none');
     const analogyCountEl = $('#analogy-count');
 
     // Modal elements
@@ -789,35 +787,43 @@
       analogyItems = [];
       analogyCountsGlobal.clear();
 
-      const entries = Array.isArray(json) ? json : Object.values(json);
-      for (const entry of entries) {
-        const tweetId = String(entry.tweet_id || '');
+      // Handle both array format and object format (keyed by tweet_id)
+      let entries;
+      if (Array.isArray(json)) {
+        entries = json.map(entry => [entry.tweet_id, entry]);
+      } else {
+        entries = Object.entries(json);
+      }
+
+      for (const [tweetId, entry] of entries) {
         if (!tweetId) continue;
         const textCleaned = entry.text_cleaned || '';
         const analogies = Array.isArray(entry.analogies) ? entry.analogies : [];
 
-        analogiesData.set(tweetId, { text_cleaned: textCleaned, analogies });
+        analogiesData.set(String(tweetId), { text_cleaned: textCleaned, analogies });
 
         // Create flattened analogy items for display
+        // Structure: current_story -> compared_story (the historical comparison)
         for (const analogy of analogies) {
-          const source = analogy.source || analogy.source_entity || '';
-          const target = analogy.target || analogy.target_entity || '';
-          const type = analogy.type || analogy.analogy_type || '';
-          const explanation = analogy.explanation || analogy.reasoning || '';
+          const currentStory = analogy.current_story || analogy.current_story_original || '';
+          const comparedStory = analogy.compared_story || analogy.compared_story_original || '';
+          const currentWiki = analogy.current_story_wikipedia || '';
+          const comparedWiki = analogy.compared_story_wikipedia || '';
 
-          if (source || target) {
+          if (currentStory || comparedStory) {
             analogyItems.push({
-              tweetId,
+              tweetId: String(tweetId),
               textCleaned,
-              source,
-              target,
-              type,
-              explanation
+              currentStory,
+              comparedStory,
+              currentWiki,
+              comparedWiki,
+              currentCandidates: analogy.current_story_candidates || [],
+              comparedCandidates: analogy.compared_story_candidates || []
             });
 
-            // Count for filtering
-            const key = `${source} → ${target}`;
-            analogyCountsGlobal.set(key, (analogyCountsGlobal.get(key) || 0) + 1);
+            // Count for filtering - use compared_story as the key (the historical reference)
+            analogyCountsGlobal.set(comparedStory, (analogyCountsGlobal.get(comparedStory) || 0) + 1);
           }
         }
       }
@@ -1288,31 +1294,51 @@
         return;
       }
 
-      // Get unique analogy keys for the checkbox list
-      const uniqueKeys = [...analogyCountsGlobal.keys()].sort((a, b) => a.localeCompare(b));
-      makeCheckboxList(analogyListEl, uniqueKeys, analogiesMode, selectedAnalogies);
+      // Get unique compared stories (historical references) sorted by count
+      const sortedAnalogies = [...analogyCountsGlobal.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => ({ name, count }));
 
-      analogyListEl.onchange = () => {
-        selectedAnalogies = collectSelected(analogyListEl);
-        const allNames = getAllItemNames(analogyListEl);
-        if (selectedAnalogies.size === 0) analogiesMode = 'none';
-        else if (selectedAnalogies.size === allNames.length) analogiesMode = 'all';
-        else analogiesMode = 'some';
+      // Build the list with counts
+      analogyListEl.innerHTML = '';
+      for (const { name, count } of sortedAnalogies) {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+          <span class="clickable-story" data-analogy="${escapeHtml(name)}" style="flex:1;">
+            ${escapeHtml(name)} <span class="small">(${count})</span>
+          </span>
+        `;
+        analogyListEl.appendChild(div);
+      }
+
+      // Click handler to show tweets with this analogy
+      analogyListEl.onclick = (e) => {
+        const span = e.target.closest('.clickable-story');
+        if (span && span.dataset.analogy) {
+          const analogyName = span.dataset.analogy;
+          // Find all tweets that have this compared_story
+          const tweetIds = analogyItems
+            .filter(item => item.comparedStory === analogyName)
+            .map(item => item.tweetId);
+          const uniqueTweetIds = [...new Set(tweetIds)];
+          openModal(`Analogy: ${analogyName}`, uniqueTweetIds);
+        }
       };
 
       analogyAllBtn.onclick = () => {
-        analogiesMode = 'all';
-        selectedAnalogies.clear();
-        for (const cb of analogyListEl.querySelectorAll('input')) cb.checked = true;
+        // Show all analogies in a modal
+        const allTweetIds = [...new Set(analogyItems.map(item => item.tweetId))];
+        openModal('All Analogies', allTweetIds.slice(0, 50)); // Limit to 50 for performance
       };
 
-      analogyNoneBtn.onclick = () => {
-        analogiesMode = 'none';
-        selectedAnalogies.clear();
-        for (const cb of analogyListEl.querySelectorAll('input')) cb.checked = false;
+      analogySearch.oninput = () => {
+        const q = (analogySearch.value || '').trim().toLowerCase();
+        for (const div of analogyListEl.children) {
+          const name = div.querySelector('.clickable-story')?.dataset.analogy?.toLowerCase() || '';
+          div.style.display = !q || name.includes(q) ? '' : 'none';
+        }
       };
-
-      analogySearch.oninput = () => filterList(analogyListEl, analogySearch.value);
     }
 
     // Modal functions
@@ -1388,17 +1414,21 @@
         const data = analogiesData.get(String(tweetId));
         if (data && data.analogies.length > 0) {
           for (const analogy of data.analogies) {
-            const source = analogy.source || analogy.source_entity || '';
-            const target = analogy.target || analogy.target_entity || '';
-            const type = analogy.type || analogy.analogy_type || '';
-            const explanation = analogy.explanation || analogy.reasoning || '';
+            const currentStory = analogy.current_story || analogy.current_story_original || '';
+            const comparedStory = analogy.compared_story || analogy.compared_story_original || '';
+            const currentWiki = analogy.current_story_wikipedia || '';
+            const comparedWiki = analogy.compared_story_wikipedia || '';
 
             html += `
               <div class="analogy-card">
-                <div class="analogy-source">Tweet: "${escapeHtml(data.text_cleaned.slice(0, 100))}${data.text_cleaned.length > 100 ? '...' : ''}"</div>
-                <div class="analogy-target"><strong>${escapeHtml(source)}</strong> → <strong>${escapeHtml(target)}</strong></div>
-                ${type ? `<div class="analogy-type">Type: ${escapeHtml(type)}</div>` : ''}
-                ${explanation ? `<div class="small" style="margin-top:4px;">${escapeHtml(explanation)}</div>` : ''}
+                <div class="analogy-source">Tweet: "${escapeHtml(data.text_cleaned.slice(0, 150))}${data.text_cleaned.length > 150 ? '...' : ''}"</div>
+                <div class="analogy-target">
+                  <strong>${escapeHtml(currentStory)}</strong>
+                  <span style="color:var(--muted);">compared to</span>
+                  <strong>${escapeHtml(comparedStory)}</strong>
+                </div>
+                ${currentWiki && currentWiki !== 'N/A' ? `<div class="small">Current: <a href="https://en.wikipedia.org/wiki/${encodeURIComponent(currentWiki)}" target="_blank">${escapeHtml(currentWiki)}</a></div>` : ''}
+                ${comparedWiki && comparedWiki !== 'N/A' ? `<div class="small">Historical: <a href="https://en.wikipedia.org/wiki/${encodeURIComponent(comparedWiki)}" target="_blank">${escapeHtml(comparedWiki)}</a></div>` : ''}
               </div>
             `;
             count++;
