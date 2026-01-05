@@ -461,6 +461,71 @@
     let chartNarratives, chartActors, chartTime;
     let map, markersLayer;
 
+    // Store event handler references for cleanup
+    let listClickHandlers = {};
+    let listInputHandlers = {};
+
+    // ---------- Cleanup Function ----------
+    function cleanupResources() {
+      // Destroy charts
+      if (chartNarratives) {
+        chartNarratives.destroy();
+        chartNarratives = null;
+      }
+      if (chartActors) {
+        chartActors.destroy();
+        chartActors = null;
+      }
+      if (chartTime) {
+        chartTime.destroy();
+        chartTime = null;
+      }
+
+      // Destroy slider
+      const sliderEl = $('#tweet-slider');
+      if (sliderEl && sliderEl.noUiSlider) {
+        sliderEl.noUiSlider.destroy();
+      }
+
+      // Remove list event listeners
+      const narrativeList = $('#narrative-list');
+      const actorList = $('#actor-list');
+      const authorList = $('#author-list');
+      const narrativeSearch = $('#narrative-search');
+      const actorSearch = $('#actor-search');
+      const authorSearch = $('#author-search');
+
+      if (listClickHandlers.narrative && narrativeList) {
+        narrativeList.removeEventListener('click', listClickHandlers.narrative);
+      }
+      if (listClickHandlers.actor && actorList) {
+        actorList.removeEventListener('click', listClickHandlers.actor);
+      }
+      if (listClickHandlers.author && authorList) {
+        authorList.removeEventListener('click', listClickHandlers.author);
+      }
+      if (listInputHandlers.narrative && narrativeSearch) {
+        narrativeSearch.removeEventListener('input', listInputHandlers.narrative);
+      }
+      if (listInputHandlers.actor && actorSearch) {
+        actorSearch.removeEventListener('input', listInputHandlers.actor);
+      }
+      if (listInputHandlers.author && authorSearch) {
+        authorSearch.removeEventListener('input', listInputHandlers.author);
+      }
+
+      // Clear map markers
+      if (markersLayer) {
+        markersLayer.clearLayers();
+      }
+
+      // Clear modal content
+      const modalContent = $('#modal-content');
+      if (modalContent) {
+        modalContent.innerHTML = '';
+      }
+    }
+
     // ---------- Screen Navigation ----------
     const modeScreen = $('#mode-screen');
     const fileScreen = $('#file-screen');
@@ -487,7 +552,19 @@
     };
 
     $('#btn-back').onclick = () => showScreen('mode');
-    $('#btn-change-mode').onclick = () => showScreen('mode');
+    $('#btn-change-mode').onclick = () => {
+      // Cleanup resources before switching modes
+      cleanupResources();
+      // Clear data references
+      rawData = null;
+      processedItems = [];
+      narrativeCounts.clear();
+      actorCounts.clear();
+      authorCounts.clear();
+      tweetDateMin = null;
+      tweetDateMax = null;
+      showScreen('mode');
+    };
 
     // ---------- File Loading ----------
     const fileInput = $('#file-input');
@@ -709,24 +786,61 @@
         </div>
       `).join('');
 
-      // Add click handlers
-      $('#narrative-list').onclick = e => {
+      // Remove old event listeners before adding new ones
+      const narrativeList = $('#narrative-list');
+      const actorList = $('#actor-list');
+      const authorList = $('#author-list');
+      const narrativeSearch = $('#narrative-search');
+      const actorSearch = $('#actor-search');
+      const authorSearch = $('#author-search');
+
+      if (listClickHandlers.narrative) {
+        narrativeList.removeEventListener('click', listClickHandlers.narrative);
+      }
+      if (listClickHandlers.actor) {
+        actorList.removeEventListener('click', listClickHandlers.actor);
+      }
+      if (listClickHandlers.author) {
+        authorList.removeEventListener('click', listClickHandlers.author);
+      }
+      if (listInputHandlers.narrative) {
+        narrativeSearch.removeEventListener('input', listInputHandlers.narrative);
+      }
+      if (listInputHandlers.actor) {
+        actorSearch.removeEventListener('input', listInputHandlers.actor);
+      }
+      if (listInputHandlers.author) {
+        authorSearch.removeEventListener('input', listInputHandlers.author);
+      }
+
+      // Create new click handlers
+      listClickHandlers.narrative = e => {
         const item = e.target.closest('.list-item');
         if (item) showNarrativeModal(item.dataset.name);
       };
-      $('#actor-list').onclick = e => {
+      listClickHandlers.actor = e => {
         const item = e.target.closest('.list-item');
         if (item) showActorModal(item.dataset.name);
       };
-      $('#author-list').onclick = e => {
+      listClickHandlers.author = e => {
         const item = e.target.closest('.list-item');
         if (item) showAuthorModal(item.dataset.name);
       };
 
-      // Search handlers
-      $('#narrative-search').oninput = e => filterList('#narrative-list', e.target.value);
-      $('#actor-search').oninput = e => filterList('#actor-list', e.target.value);
-      $('#author-search').oninput = e => filterList('#author-list', e.target.value);
+      // Create new search handlers
+      listInputHandlers.narrative = e => filterList('#narrative-list', e.target.value);
+      listInputHandlers.actor = e => filterList('#actor-list', e.target.value);
+      listInputHandlers.author = e => filterList('#author-list', e.target.value);
+
+      // Add click handlers
+      narrativeList.addEventListener('click', listClickHandlers.narrative);
+      actorList.addEventListener('click', listClickHandlers.actor);
+      authorList.addEventListener('click', listClickHandlers.author);
+
+      // Add search handlers
+      narrativeSearch.addEventListener('input', listInputHandlers.narrative);
+      actorSearch.addEventListener('input', listInputHandlers.actor);
+      authorSearch.addEventListener('input', listInputHandlers.author);
     }
 
     function filterList(selector, query) {
@@ -752,7 +866,13 @@
       modalContent.innerHTML = html;
       modal.classList.add('show');
     }
-    function closeModal() { modal.classList.remove('show'); }
+    function closeModal() {
+      modal.classList.remove('show');
+      // Clear modal content to release DOM references and prevent memory leaks
+      modalContent.innerHTML = '';
+      modalTitle.textContent = '';
+      modalSubtitle.textContent = '';
+    }
 
     function showNarrativeModal(name) {
       const items = processedItems.filter(i => i.narrative === name);
@@ -859,6 +979,11 @@
     // ---------- Slider ----------
     function initSlider() {
       const sliderEl = $('#tweet-slider');
+
+      // Properly destroy existing slider before recreating
+      if (sliderEl.noUiSlider) {
+        sliderEl.noUiSlider.destroy();
+      }
       sliderEl.innerHTML = '';
 
       if (!tweetDateMin || !tweetDateMax || typeof noUiSlider === 'undefined') {
@@ -884,6 +1009,20 @@
     // ---------- Charts ----------
     function initCharts() {
       if (typeof Chart === 'undefined') return;
+
+      // Destroy existing charts before creating new ones
+      if (chartNarratives) {
+        chartNarratives.destroy();
+        chartNarratives = null;
+      }
+      if (chartActors) {
+        chartActors.destroy();
+        chartActors = null;
+      }
+      if (chartTime) {
+        chartTime.destroy();
+        chartTime = null;
+      }
 
       const opts = {
         responsive: true,
@@ -980,9 +1119,12 @@
       for (const item of filtered) {
         if (item.lat != null && item.lon != null) {
           const key = `${item.lat.toFixed(2)},${item.lon.toFixed(2)}`;
-          const existing = locCounts.get(key) || { lat: item.lat, lon: item.lon, count: 0, items: [] };
+          const existing = locCounts.get(key) || { lat: item.lat, lon: item.lon, count: 0, narratives: new Set() };
           existing.count++;
-          existing.items.push(item);
+          // Only store narrative names, not full item references
+          if (item.narrative) {
+            existing.narratives.add(item.narrative);
+          }
           locCounts.set(key, existing);
         }
       }
@@ -995,10 +1137,11 @@
           radius: r, color: '#6dd39e', weight: 1, fillColor: '#3aa675', fillOpacity: 0.4
         });
 
-        const topNarratives = [...new Map(loc.items.map(i=>[i.narrative,1])).keys()].slice(0,5);
+        // Get top 5 narratives from the Set (already deduplicated)
+        const topNarratives = [...loc.narratives].slice(0, 5);
         circle.bindPopup(`
           <strong>${loc.count} references</strong><br>
-          ${topNarratives.map(n=>`<div>${n}</div>`).join('')}
+          ${topNarratives.map(n=>`<div>${escapeHtml(n)}</div>`).join('')}
         `);
         circle.addTo(markersLayer);
       }
