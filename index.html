@@ -381,6 +381,29 @@
 
     <div id="layout">
       <aside id="sidebar">
+        <!-- Date Filter -->
+        <div class="panel">
+          <h3>Tweet Date Range</h3>
+          <div id="tweet-slider" class="slider"></div>
+          <div class="small" id="tweet-range-label">N/A</div>
+          <div class="row" style="margin-top: 10px; gap: 6px;">
+            <button class="btn ghost" id="btn-play" title="Play/Pause animation">Play</button>
+            <button class="btn ghost" id="btn-step-back" title="Step backward">&lt;</button>
+            <button class="btn ghost" id="btn-step-forward" title="Step forward">&gt;</button>
+            <button class="btn ghost" id="btn-reset" title="Reset to full range">Reset</button>
+          </div>
+          <div style="margin-top: 10px;">
+            <label class="small">Window size (days):</label>
+            <div class="row" style="margin-top: 4px; gap: 6px;">
+              <button class="btn ghost cluster-btn" data-days="7">7d</button>
+              <button class="btn ghost cluster-btn" data-days="30">30d</button>
+              <button class="btn ghost cluster-btn" data-days="90">90d</button>
+              <button class="btn ghost cluster-btn" data-days="365">1yr</button>
+              <button class="btn ghost cluster-btn active" data-days="0">All</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Narratives/Stories Panel -->
         <div class="panel" id="panel-narratives">
           <h3 id="narratives-title">Narratives</h3>
@@ -406,29 +429,6 @@
             <input id="author-search" type="text" placeholder="Search authors..." />
           </div>
           <div id="author-list" class="scroll"></div>
-        </div>
-
-        <!-- Date Filter -->
-        <div class="panel">
-          <h3>Tweet Date Range</h3>
-          <div id="tweet-slider" class="slider"></div>
-          <div class="small" id="tweet-range-label">N/A</div>
-          <div class="row" style="margin-top: 10px; gap: 6px;">
-            <button class="btn ghost" id="btn-play" title="Play/Pause animation">Play</button>
-            <button class="btn ghost" id="btn-step-back" title="Step backward">&lt;</button>
-            <button class="btn ghost" id="btn-step-forward" title="Step forward">&gt;</button>
-            <button class="btn ghost" id="btn-reset" title="Reset to full range">Reset</button>
-          </div>
-          <div style="margin-top: 10px;">
-            <label class="small">Window size (days):</label>
-            <div class="row" style="margin-top: 4px; gap: 6px;">
-              <button class="btn ghost cluster-btn" data-days="7">7d</button>
-              <button class="btn ghost cluster-btn" data-days="30">30d</button>
-              <button class="btn ghost cluster-btn" data-days="90">90d</button>
-              <button class="btn ghost cluster-btn" data-days="365">1yr</button>
-              <button class="btn ghost cluster-btn active" data-days="0">All</button>
-            </div>
-          </div>
         </div>
       </aside>
 
