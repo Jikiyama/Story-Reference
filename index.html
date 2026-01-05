@@ -165,13 +165,15 @@
     #map { flex: 1; min-height: 300px; }
 
     #bottom {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      display: flex;
       gap: 12px;
       padding: 12px;
       border-top: 1px solid var(--border);
-      height: 280px;
+      height: 180px;
       flex-shrink: 0;
+    }
+    #bottom .panel {
+      flex: 1;
     }
 
     .panel {
@@ -316,11 +318,15 @@
 
     .slider { margin: 10px 0; }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .cluster-btn.active { background: var(--accent); color: #07130d; border-color: var(--accent); }
+    .btn.ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.ghost { padding: 6px 10px; font-size: 12px; }
+    .cluster-btn { padding: 4px 8px; font-size: 11px; }
 
     @media (max-width: 1100px) {
       #layout { grid-template-columns: 1fr; }
       #sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
-      #bottom { grid-template-columns: 1fr; height: auto; }
+      #bottom { flex-direction: column; height: auto; }
     }
   </style>
 </head>
@@ -407,20 +413,28 @@
           <h3>Tweet Date Range</h3>
           <div id="tweet-slider" class="slider"></div>
           <div class="small" id="tweet-range-label">N/A</div>
+          <div class="row" style="margin-top: 10px; gap: 6px;">
+            <button class="btn ghost" id="btn-play" title="Play/Pause animation">Play</button>
+            <button class="btn ghost" id="btn-step-back" title="Step backward">&lt;</button>
+            <button class="btn ghost" id="btn-step-forward" title="Step forward">&gt;</button>
+            <button class="btn ghost" id="btn-reset" title="Reset to full range">Reset</button>
+          </div>
+          <div style="margin-top: 10px;">
+            <label class="small">Window size (days):</label>
+            <div class="row" style="margin-top: 4px; gap: 6px;">
+              <button class="btn ghost cluster-btn" data-days="7">7d</button>
+              <button class="btn ghost cluster-btn" data-days="30">30d</button>
+              <button class="btn ghost cluster-btn" data-days="90">90d</button>
+              <button class="btn ghost cluster-btn" data-days="365">1yr</button>
+              <button class="btn ghost cluster-btn active" data-days="0">All</button>
+            </div>
+          </div>
         </div>
       </aside>
 
       <div id="main-content">
         <section id="map"></section>
         <section id="bottom">
-          <div class="panel">
-            <h3 id="chart1-title">Top Narratives</h3>
-            <div class="chart-wrap"><canvas id="chart-narratives"></canvas></div>
-          </div>
-          <div class="panel">
-            <h3>Top Actors</h3>
-            <div class="chart-wrap"><canvas id="chart-actors"></canvas></div>
-          </div>
           <div class="panel">
             <h3>Timeline</h3>
             <div class="chart-wrap"><canvas id="chart-time"></canvas></div>
@@ -458,8 +472,13 @@
     let actorCounts = new Map();
     let authorCounts = new Map();
     let tweetDateMin = null, tweetDateMax = null;
-    let chartNarratives, chartActors, chartTime;
+    let chartTime;
     let map, markersLayer;
+
+    // Playback state
+    let isPlaying = false;
+    let playInterval = null;
+    let windowSizeDays = 0; // 0 means full range
 
     // Store event handler references for cleanup
     let listClickHandlers = {};
@@ -467,15 +486,14 @@
 
     // ---------- Cleanup Function ----------
     function cleanupResources() {
-      // Destroy charts
-      if (chartNarratives) {
-        chartNarratives.destroy();
-        chartNarratives = null;
+      // Stop playback
+      if (playInterval) {
+        clearInterval(playInterval);
+        playInterval = null;
+        isPlaying = false;
       }
-      if (chartActors) {
-        chartActors.destroy();
-        chartActors = null;
-      }
+
+      // Destroy chart
       if (chartTime) {
         chartTime.destroy();
         chartTime = null;
@@ -753,14 +771,38 @@
     function initUI() {
       buildLists();
       initSlider();
+      initPlaybackControls();
       initCharts();
       initMap();
       updateDisplay();
     }
 
-    function buildLists() {
+    function updateListCounts(filtered) {
+      // Compute counts from filtered data
+      const nCounts = new Map();
+      const aCounts = new Map();
+      const auCounts = new Map();
+
+      for (const item of filtered) {
+        if (item.narrative) {
+          nCounts.set(item.narrative, (nCounts.get(item.narrative) || 0) + 1);
+        }
+        if (currentMode === 'references') {
+          for (const actor of (item.actors || [])) {
+            if (actor) aCounts.set(actor, (aCounts.get(actor) || 0) + 1);
+          }
+          if (item.screenName) {
+            auCounts.set(item.screenName, (auCounts.get(item.screenName) || 0) + 1);
+          }
+        } else {
+          if (item.currentStory) {
+            aCounts.set(item.currentStory, (aCounts.get(item.currentStory) || 0) + 1);
+          }
+        }
+      }
+
       // Build narrative list sorted by count
-      const sortedNarratives = [...narrativeCounts.entries()].sort((a,b) => b[1] - a[1]);
+      const sortedNarratives = [...nCounts.entries()].sort((a, b) => b[1] - a[1]);
       $('#narrative-list').innerHTML = sortedNarratives.map(([name, count]) => `
         <div class="list-item" data-name="${escapeHtml(name)}">
           <span>${escapeHtml(name)}</span>
@@ -769,7 +811,7 @@
       `).join('');
 
       // Build actor/current events list sorted by count
-      const sortedActors = [...actorCounts.entries()].sort((a,b) => b[1] - a[1]);
+      const sortedActors = [...aCounts.entries()].sort((a, b) => b[1] - a[1]);
       $('#actor-list').innerHTML = sortedActors.map(([name, count]) => `
         <div class="list-item" data-name="${escapeHtml(name)}">
           <span>${escapeHtml(name)}</span>
@@ -778,13 +820,20 @@
       `).join('');
 
       // Build author list sorted by count
-      const sortedAuthors = [...authorCounts.entries()].sort((a,b) => b[1] - a[1]);
+      const sortedAuthors = [...auCounts.entries()].sort((a, b) => b[1] - a[1]);
       $('#author-list').innerHTML = sortedAuthors.map(([name, count]) => `
         <div class="list-item" data-name="${escapeHtml(name)}">
           <span>@${escapeHtml(name)}</span>
           <span class="count">${count}</span>
         </div>
       `).join('');
+    }
+
+    function buildLists() {
+      // Initial build with full counts
+      updateListCounts(processedItems);
+
+      // Event listeners are set up below (only once per data load)
 
       // Remove old event listeners before adding new ones
       const narrativeList = $('#narrative-list');
@@ -1006,19 +1055,129 @@
       sliderEl.noUiSlider.on('change', updateDisplay);
     }
 
+    // ---------- Playback Controls ----------
+    function initPlaybackControls() {
+      const sliderEl = $('#tweet-slider');
+      const btnPlay = $('#btn-play');
+      const btnStepBack = $('#btn-step-back');
+      const btnStepForward = $('#btn-step-forward');
+      const btnReset = $('#btn-reset');
+      const clusterBtns = $$('.cluster-btn');
+
+      if (!sliderEl || !btnPlay) return;
+
+      // Play/Pause button
+      btnPlay.onclick = () => {
+        if (!sliderEl.noUiSlider || !tweetDateMin || !tweetDateMax) return;
+
+        if (isPlaying) {
+          // Stop playing
+          clearInterval(playInterval);
+          playInterval = null;
+          isPlaying = false;
+          btnPlay.textContent = 'Play';
+        } else {
+          // Start playing
+          isPlaying = true;
+          btnPlay.textContent = 'Pause';
+
+          const stepMs = 24 * 3600 * 1000; // 1 day step
+          const windowMs = windowSizeDays > 0 ? windowSizeDays * 24 * 3600 * 1000 : (tweetDateMax.getTime() - tweetDateMin.getTime());
+
+          playInterval = setInterval(() => {
+            const [startTs, endTs] = sliderEl.noUiSlider.get().map(Number);
+            const newStart = startTs + stepMs;
+            const newEnd = endTs + stepMs;
+
+            if (newEnd > tweetDateMax.getTime()) {
+              // Reached the end, stop or loop
+              clearInterval(playInterval);
+              playInterval = null;
+              isPlaying = false;
+              btnPlay.textContent = 'Play';
+              return;
+            }
+
+            sliderEl.noUiSlider.set([newStart, newEnd]);
+            updateDisplay();
+          }, 500); // Update every 500ms
+        }
+      };
+
+      // Step backward
+      btnStepBack.onclick = () => {
+        if (!sliderEl.noUiSlider) return;
+        const stepMs = (windowSizeDays > 0 ? windowSizeDays : 7) * 24 * 3600 * 1000;
+        const [startTs, endTs] = sliderEl.noUiSlider.get().map(Number);
+        const windowSize = endTs - startTs;
+        const newStart = Math.max(tweetDateMin.getTime(), startTs - stepMs);
+        const newEnd = newStart + windowSize;
+        sliderEl.noUiSlider.set([newStart, newEnd]);
+        updateDisplay();
+      };
+
+      // Step forward
+      btnStepForward.onclick = () => {
+        if (!sliderEl.noUiSlider) return;
+        const stepMs = (windowSizeDays > 0 ? windowSizeDays : 7) * 24 * 3600 * 1000;
+        const [startTs, endTs] = sliderEl.noUiSlider.get().map(Number);
+        const windowSize = endTs - startTs;
+        const newEnd = Math.min(tweetDateMax.getTime(), endTs + stepMs);
+        const newStart = newEnd - windowSize;
+        sliderEl.noUiSlider.set([newStart, newEnd]);
+        updateDisplay();
+      };
+
+      // Reset to full range
+      btnReset.onclick = () => {
+        if (!sliderEl.noUiSlider || !tweetDateMin || !tweetDateMax) return;
+        // Stop playback if running
+        if (isPlaying) {
+          clearInterval(playInterval);
+          playInterval = null;
+          isPlaying = false;
+          btnPlay.textContent = 'Play';
+        }
+        // Reset window size
+        windowSizeDays = 0;
+        clusterBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.days === '0'));
+        // Reset slider to full range
+        sliderEl.noUiSlider.set([tweetDateMin.getTime(), tweetDateMax.getTime()]);
+        updateDisplay();
+      };
+
+      // Window size (clustering) buttons
+      clusterBtns.forEach(btn => {
+        btn.onclick = () => {
+          const days = parseInt(btn.dataset.days, 10);
+          windowSizeDays = days;
+
+          // Update active state
+          clusterBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          if (!sliderEl.noUiSlider || !tweetDateMin || !tweetDateMax) return;
+
+          if (days === 0) {
+            // Full range
+            sliderEl.noUiSlider.set([tweetDateMin.getTime(), tweetDateMax.getTime()]);
+          } else {
+            // Set window from current start position
+            const [startTs] = sliderEl.noUiSlider.get().map(Number);
+            const windowMs = days * 24 * 3600 * 1000;
+            const newEnd = Math.min(startTs + windowMs, tweetDateMax.getTime());
+            sliderEl.noUiSlider.set([startTs, newEnd]);
+          }
+          updateDisplay();
+        };
+      });
+    }
+
     // ---------- Charts ----------
     function initCharts() {
       if (typeof Chart === 'undefined') return;
 
-      // Destroy existing charts before creating new ones
-      if (chartNarratives) {
-        chartNarratives.destroy();
-        chartNarratives = null;
-      }
-      if (chartActors) {
-        chartActors.destroy();
-        chartActors = null;
-      }
+      // Destroy existing chart before creating new one
       if (chartTime) {
         chartTime.destroy();
         chartTime = null;
@@ -1028,70 +1187,26 @@
         responsive: true,
         maintainAspectRatio: false,
         scales: { x: { ticks: { color: '#cfd7df' }}, y: { ticks: { color: '#cfd7df' }}},
-        plugins: { legend: { display: false }},
-        onClick: (e, elements) => {
-          if (elements.length > 0) {
-            const chart = e.chart;
-            const idx = elements[0].index;
-            const label = chart.data.labels[idx];
-            if (chart === chartNarratives) showNarrativeModal(label);
-            else if (chart === chartActors) showActorModal(label);
-          }
-        },
-        onHover: (e, elements) => {
-          e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
-        }
+        plugins: { legend: { display: false }}
       };
-
-      chartNarratives = new Chart($('#chart-narratives'), {
-        type: 'bar',
-        data: { labels: [], datasets: [{ data: [], backgroundColor: '#3aa675' }] },
-        options: opts
-      });
-
-      chartActors = new Chart($('#chart-actors'), {
-        type: 'bar',
-        data: { labels: [], datasets: [{ data: [], backgroundColor: '#7cc7ff' }] },
-        options: opts
-      });
 
       chartTime = new Chart($('#chart-time'), {
         type: 'line',
         data: { labels: [], datasets: [{ data: [], borderColor: '#9bd8ff', fill: false, tension: 0.1 }] },
-        options: { ...opts, onClick: undefined }
+        options: opts
       });
     }
 
     function updateCharts(filtered) {
-      if (!chartNarratives) return;
+      if (!chartTime) return;
 
-      // Top narratives
-      const nCounts = new Map();
-      const aCounts = new Map();
       const dayCounts = new Map();
-
       for (const item of filtered) {
-        if (item.narrative) nCounts.set(item.narrative, (nCounts.get(item.narrative)||0)+1);
-        if (item.type === 'reference') {
-          for (const a of item.actors) aCounts.set(a, (aCounts.get(a)||0)+1);
-        } else if (item.currentStory) {
-          aCounts.set(item.currentStory, (aCounts.get(item.currentStory)||0)+1);
-        }
         if (item.tweetDate) {
           const day = item.tweetDate.toISOString().slice(0,10);
           dayCounts.set(day, (dayCounts.get(day)||0)+1);
         }
       }
-
-      const topN = [...nCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15);
-      chartNarratives.data.labels = topN.map(x=>x[0]);
-      chartNarratives.data.datasets[0].data = topN.map(x=>x[1]);
-      chartNarratives.update();
-
-      const topA = [...aCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15);
-      chartActors.data.labels = topA.map(x=>x[0]);
-      chartActors.data.datasets[0].data = topA.map(x=>x[1]);
-      chartActors.update();
 
       const days = [...dayCounts.keys()].sort();
       chartTime.data.labels = days;
@@ -1161,8 +1276,17 @@
         });
       }
 
+      // Update sidebar lists with filtered counts
+      updateListCounts(filtered);
       updateCharts(filtered);
       updateMap(filtered);
+
+      // Update the meta pill with filtered count
+      const total = processedItems.length;
+      const shown = filtered.length;
+      if (shown < total) {
+        $('#meta-pill').textContent = `${fmt(shown)} of ${fmt(total)} items`;
+      }
     }
 
     // ---------- Export ----------
